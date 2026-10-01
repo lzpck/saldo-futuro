@@ -56,3 +56,11 @@ invalidação, fallback em erro/timeout. Sem chamadas reais à API nos testes au
 ## Fora de escopo
 
 Chat, categorização automática por IA, qualquer outro uso de IA.
+
+## Andamento
+
+- **Passo 1 implementado:** `npm run backtest -- [caminho do banco]` (`scripts/backtest-previsao.ts`, lógica em
+  `src/lib/backtest.ts`). Trabalha numa cópia temporária do banco e imprime o MAPE por série e geral.
+- **Resultado:** o banco atual (`data/saldo.db`) ainda não tem nenhuma recorrência variável, então não há número
+  para registrar. Rodar de novo quando houver histórico real (≥ 2 meses) e decidir com o usuário.
+- **Passo 2:** não iniciado (aguardando o resultado do backtest e a decisão do usuário).
