@@ -8,6 +8,7 @@ import { getDb } from "@/lib/db/connection";
 import { centsToInput } from "@/lib/money";
 import { addDays } from "@/lib/projection";
 import { getAccount, isCard, listAccounts, type Account } from "@/lib/repos/accounts";
+import { favoritesFirst } from "@/lib/account-options";
 import { cardInvoices, type CardInvoice } from "@/lib/repos/cards";
 import { listWithOccurrences } from "@/lib/repos/recurrences";
 import { PayInvoiceForm } from "./pay-form";
@@ -88,7 +89,7 @@ export default async function CardPage({ params }: PageProps<"/cartoes/[id]">) {
   if (!found || !isCard(found) || found.closingDay === null || found.dueDay === null) notFound();
   const card = { ...found, closingDay: found.closingDay, dueDay: found.dueDay };
 
-  const payers = listAccounts(db).filter((a) => !isCard(a));
+  const payers = favoritesFirst(listAccounts(db).filter((a) => !isCard(a)));
   const payer = payers.find((a) => a.id === card.payAccountId);
   const invoices = cardInvoices(db, card, listWithOccurrences(db, addDays(today, 400)), today);
   const unpaid = invoices.filter((i) => i.remainingCents > 0);

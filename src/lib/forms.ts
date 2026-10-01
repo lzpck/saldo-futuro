@@ -208,6 +208,7 @@ export function parseAccountForm(fd: FormData) {
   const base = schema.safeParse({ name: text(fd.get("name")), kind: text(fd.get("kind")) });
   if (!base.success) return { ok: false, error: base.error.issues[0].message } as const;
 
+  const favorite = fd.get("favorite") === "on";
   const raw = text(fd.get("initialBalance"));
   const initialBalanceCents = raw === "" ? 0 : parseBRL(raw);
   if (initialBalanceCents === null) {
@@ -215,7 +216,7 @@ export function parseAccountForm(fd: FormData) {
   }
 
   if (base.data.kind !== "cartao") {
-    return { ok: true, data: { ...base.data, initialBalanceCents } } as const;
+    return { ok: true, data: { ...base.data, initialBalanceCents, favorite } } as const;
   }
 
   const closingDay = optionalId(fd.get("closingDay"));
@@ -227,7 +228,7 @@ export function parseAccountForm(fd: FormData) {
   if (!pay.success) return { ok: false, error: pay.error.issues[0].message } as const;
   const payAccountId = pay.data;
   if (payAccountId === null) return { ok: false, error: "Escolha a conta que paga a fatura." } as const;
-  return { ok: true, data: { ...base.data, initialBalanceCents: 0, closingDay, dueDay, payAccountId } } as const;
+  return { ok: true, data: { ...base.data, initialBalanceCents: 0, closingDay, dueDay, payAccountId, favorite } } as const;
 }
 
 export function parseCategoryForm(fd: FormData) {

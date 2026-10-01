@@ -21,6 +21,7 @@ import { budgetWarnings } from "@/lib/repos/budgets";
 import { listCategories } from "@/lib/repos/categories";
 import { listSchedule } from "@/lib/repos/schedule";
 import type { Transaction } from "@/lib/repos/transactions";
+import { AccountOptions } from "@/components/account-options";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -181,11 +182,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
           </select>
           <select name="conta" defaultValue={accountId ?? ""} className="input" aria-label="Filtrar por conta">
             <option value="">Todas as contas</option>
-            {allAccounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
+            <AccountOptions accounts={allAccounts} />
           </select>
           <select name="categoria" defaultValue={filters.categoryId ?? ""} className="input" aria-label="Filtrar por categoria">
             <option value="">Todas as categorias</option>

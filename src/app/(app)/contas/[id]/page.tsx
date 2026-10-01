@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { toggleAccountArchived } from "@/app/actions/accounts";
 import { getDb } from "@/lib/db/connection";
 import { getAccount, isCard, listAccounts } from "@/lib/repos/accounts";
+import { favoritesFirst } from "@/lib/account-options";
 import { AccountForm } from "../account-form";
 
 export default async function EditAccountPage({ params }: PageProps<"/contas/[id]">) {
@@ -9,7 +10,7 @@ export default async function EditAccountPage({ params }: PageProps<"/contas/[id
   const db = getDb();
   const account = getAccount(db, Number(id));
   if (!account) notFound();
-  const payers = listAccounts(db).filter((a) => !isCard(a));
+  const payers = favoritesFirst(listAccounts(db).filter((a) => !isCard(a)));
 
   return (
     <div className="mx-auto max-w-lg space-y-5">

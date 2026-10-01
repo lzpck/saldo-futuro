@@ -165,6 +165,10 @@ const MIGRATIONS: Migration[] = [
       );
     `);
   },
+  // Conta favorita: sobe para o topo dos seletores de conta.
+  (db) => {
+    db.exec(`ALTER TABLE accounts ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0;`);
+  },
 ];
 
 export function migrate(db: Database.Database): void {

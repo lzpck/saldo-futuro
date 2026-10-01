@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { payInvoiceAction } from "@/app/actions/cards";
+import { accountLabel } from "@/lib/account-options";
 import type { Account } from "@/lib/repos/accounts";
 
 export function PayInvoiceForm({
@@ -40,7 +41,7 @@ export function PayInvoiceForm({
           <label htmlFor={`from-${id}`} className="label">Pagar com</label>
           <select id={`from-${id}`} name="fromAccountId" defaultValue={defaultFromId} className="input">
             {payers.map((a) => (
-              <option key={a.id} value={a.id}>{a.name}</option>
+              <option key={a.id} value={a.id}>{accountLabel(a)}</option>
             ))}
           </select>
         </div>

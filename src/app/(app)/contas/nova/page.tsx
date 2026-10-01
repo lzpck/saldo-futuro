@@ -1,12 +1,13 @@
 import { getDb } from "@/lib/db/connection";
 import { isCard, listAccounts } from "@/lib/repos/accounts";
+import { favoritesFirst } from "@/lib/account-options";
 import { AccountForm } from "../account-form";
 
 type SearchParams = Promise<{ tipo?: string }>;
 
 export default async function NewAccountPage({ searchParams }: { searchParams: SearchParams }) {
   const { tipo } = await searchParams;
-  const payers = listAccounts(getDb()).filter((a) => !isCard(a));
+  const payers = favoritesFirst(listAccounts(getDb()).filter((a) => !isCard(a)));
   const initialKind = tipo === "cartao" ? "cartao" : "corrente";
 
   return (

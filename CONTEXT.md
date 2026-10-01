@@ -11,6 +11,12 @@ _Evitar_: carteira, banco
 **Conta de cartão**:
 Tipo de Conta que representa um cartão de crédito, com dia de fechamento, dia de vencimento e a Conta que paga a fatura. Seus gastos se acumulam em Faturas. Fica fora do Saldo total: o saldo dela é a dívida (negativo) e o dinheiro só sai da Conta de pagamento quando a Fatura é paga. Não tem saldo inicial.
 
+**Conta favorita**:
+Conta (ou Conta de cartão) que o usuário marcou como de uso frequente. Pode haver várias, sem limite. Nos seletores de Conta aparece antes das demais do seu grupo (Contas ou Cartões), em ordem alfabética, e a primeira favorita é a pré-selecionada num novo Lançamento. Uma Conta arquivada deixa de ser favorita.
+
+**Conta arquivada**:
+Conta que o usuário tirou de uso sem apagar: deixa de ser oferecida para novos Lançamentos, mas mantém o histórico e continua aparecendo onde um Lançamento antigo precisa dela.
+
 **Fatura**:
 Conjunto de compras e estornos de uma Conta de cartão num ciclo de fechamento. É calculada a partir dos Lançamentos (não é gravada) e gera um Lançamento previsto de pagamento no vencimento, debitado da Conta de pagamento, cujo valor se ajusta a novas compras. A compra entra na Fatura que fecha no dia dela ou depois (no dia do fechamento ainda entra). Parcelas e Ocorrências previstas no cartão entram nas Faturas futuras.
 

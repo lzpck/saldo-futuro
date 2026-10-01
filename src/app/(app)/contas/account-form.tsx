@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { saveAccount } from "@/app/actions/accounts";
 import { centsToInput } from "@/lib/money";
+import { accountLabel } from "@/lib/account-options";
 import { ACCOUNT_KINDS, ACCOUNT_KIND_LABEL, type Account, type AccountKind } from "@/lib/repos/accounts";
 
 export function AccountForm({
@@ -37,6 +38,11 @@ export function AccountForm({
         </select>
       </div>
 
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="favorite" defaultChecked={existing?.favorite} disabled={existing?.archived} />
+        Favorita <span className="text-xs text-muted">(aparece primeiro nos seletores)</span>
+      </label>
+
       {isCardKind ? (
         <>
           <div className="grid grid-cols-2 gap-3">
@@ -54,7 +60,7 @@ export function AccountForm({
             <select id="payAccountId" name="payAccountId" defaultValue={existing?.payAccountId ?? payers[0]?.id ?? ""} required className="input">
               {payers.length === 0 && <option value="">Crie uma conta primeiro</option>}
               {payers.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
+                <option key={a.id} value={a.id}>{accountLabel(a)}</option>
               ))}
             </select>
           </div>

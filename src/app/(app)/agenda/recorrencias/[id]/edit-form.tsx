@@ -7,6 +7,7 @@ import { centsToInput } from "@/lib/money";
 import type { Account } from "@/lib/repos/accounts";
 import type { Category } from "@/lib/repos/categories";
 import type { Recurrence } from "@/lib/repos/recurrences";
+import { AccountOptions } from "@/components/account-options";
 
 export function RecurrenceEditForm({
   rule,
@@ -55,9 +56,7 @@ export function RecurrenceEditForm({
         <div>
           <label htmlFor="accountId" className="label">Conta</label>
           <select id="accountId" name="accountId" defaultValue={rule.accountId} className="input">
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
+            <AccountOptions accounts={accounts} />
           </select>
         </div>
         <div>

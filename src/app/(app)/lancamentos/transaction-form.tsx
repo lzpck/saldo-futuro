@@ -9,6 +9,8 @@ import { FREQUENCIES, FREQUENCY_LABEL, type Frequency } from "@/lib/recurrence";
 import { isCard, type Account } from "@/lib/repos/accounts";
 import type { Category } from "@/lib/repos/categories";
 import type { Transaction, TransactionKind, TransactionStatus } from "@/lib/repos/transactions";
+import { AccountOptions } from "@/components/account-options";
+import { defaultAccountId } from "@/lib/account-options";
 
 const KINDS: { value: TransactionKind; label: string }[] = [
   { value: "despesa", label: "Despesa" },
@@ -52,7 +54,7 @@ export function TransactionForm({
   const [isVariable, setIsVariable] = useState(false);
   const [amountMode, setAmountMode] = useState<"parcela" | "total">("parcela");
   const [accountId, setAccountId] = useState<number>(
-    existing?.accountId ?? initialAccountId ?? (accounts.find((a) => !isCard(a)) ?? accounts[0])?.id ?? 0,
+    existing?.accountId ?? initialAccountId ?? defaultAccountId(accounts) ?? 0,
   );
   const onCard = accounts.find((a) => a.id === accountId && isCard(a));
 
@@ -141,9 +143,7 @@ export function TransactionForm({
         <div>
           <label htmlFor="accountId" className="label">{kind === "transferencia" ? "Origem" : "Conta"}</label>
           <select id="accountId" name="accountId" value={accountId} onChange={(e) => setAccountId(Number(e.target.value))} required className="input">
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>{isCard(a) ? `💳 ${a.name}` : a.name}</option>
-            ))}
+            <AccountOptions accounts={accounts} />
           </select>
         </div>
       </div>
@@ -194,9 +194,7 @@ export function TransactionForm({
           <label htmlFor="toAccountId" className="label">Destino</label>
           <select id="toAccountId" name="toAccountId" defaultValue={existing?.toAccountId ?? ""} required className="input">
             <option value="" disabled>Escolha…</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
+            <AccountOptions accounts={accounts} />
           </select>
         </div>
       ) : (

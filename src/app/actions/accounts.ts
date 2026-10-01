@@ -5,7 +5,7 @@ import { verifySession } from "@/lib/auth/dal";
 import { refreshAll } from "./shared";
 import { getDb } from "@/lib/db/connection";
 import { idField, intField, parseAccountForm, type FormState } from "@/lib/forms";
-import { createAccount, setAccountArchived, updateAccount } from "@/lib/repos/accounts";
+import { createAccount, setAccountArchived, setAccountFavorite, updateAccount } from "@/lib/repos/accounts";
 
 export async function saveAccount(_: FormState, fd: FormData): Promise<FormState> {
   await verifySession();
@@ -27,5 +27,11 @@ export async function saveAccount(_: FormState, fd: FormData): Promise<FormState
 export async function toggleAccountArchived(fd: FormData): Promise<void> {
   await verifySession();
   setAccountArchived(getDb(), idField(fd, "id"), fd.get("archive") === "1");
+  refreshAll();
+}
+
+export async function toggleAccountFavorite(fd: FormData): Promise<void> {
+  await verifySession();
+  setAccountFavorite(getDb(), idField(fd, "id"), fd.get("favorite") === "1");
   refreshAll();
 }

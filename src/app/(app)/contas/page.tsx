@@ -1,20 +1,37 @@
 import Link from "next/link";
-import { toggleAccountArchived } from "@/app/actions/accounts";
+import { toggleAccountArchived, toggleAccountFavorite } from "@/app/actions/accounts";
 import { Amount } from "@/components/amount";
 import { todayISO, formatDateBR } from "@/lib/dates";
 import { getDb } from "@/lib/db/connection";
 import { ACCOUNT_KIND_LABEL, isCard, listAccounts, totalBalanceCents } from "@/lib/repos/accounts";
+import { favoritesFirst } from "@/lib/account-options";
 import { cardInvoices } from "@/lib/repos/cards";
 import { listWithOccurrences } from "@/lib/repos/recurrences";
 import { addDays } from "@/lib/projection";
+
+function FavoriteStar({ id, favorite }: { id: number; favorite: boolean }) {
+  return (
+    <form action={toggleAccountFavorite}>
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="favorite" value={favorite ? "0" : "1"} />
+      <button
+        className={`px-1 text-xl leading-none ${favorite ? "text-amber-400" : "text-muted"}`}
+        aria-label={favorite ? "Remover dos favoritos" : "Marcar como favorita"}
+        aria-pressed={favorite}
+      >
+        {favorite ? "★" : "☆"}
+      </button>
+    </form>
+  );
+}
 
 export default function AccountsPage() {
   const db = getDb();
   const today = todayISO();
   const all = listAccounts(db, { includeArchived: true });
   const active = all.filter((a) => !a.archived);
-  const accounts = active.filter((a) => !isCard(a));
-  const cards = active.filter(isCard);
+  const accounts = favoritesFirst(active.filter((a) => !isCard(a)));
+  const cards = favoritesFirst(active.filter(isCard));
   const archived = all.filter((a) => a.archived);
 
   // Próxima fatura em aberto de cada cartão.
@@ -38,6 +55,7 @@ export default function AccountsPage() {
       <ul className="space-y-3">
         {accounts.map((a) => (
           <li key={a.id} className="card flex items-center gap-3">
+            <FavoriteStar id={a.id} favorite={a.favorite} />
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{a.name}</p>
               <p className="text-xs text-muted">{ACCOUNT_KIND_LABEL[a.kind]}</p>
@@ -62,8 +80,9 @@ export default function AccountsPage() {
           {cards.map((c) => {
             const inv = nextInvoice.get(c.id);
             return (
-              <li key={c.id}>
-                <Link href={`/cartoes/${c.id}`} className="card flex items-center gap-3 transition hover:border-muted/50">
+              <li key={c.id} className="card flex items-center gap-3 transition hover:border-muted/50">
+                <FavoriteStar id={c.id} favorite={c.favorite} />
+                <Link href={`/cartoes/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                   <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/15 text-lg" aria-hidden>💳</span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{c.name}</p>

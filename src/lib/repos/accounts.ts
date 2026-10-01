@@ -16,6 +16,8 @@ export type Account = {
   kind: AccountKind;
   initialBalanceCents: number;
   archived: boolean;
+  /** Conta favorita: aparece primeiro nos seletores. Conta arquivada nunca é favorita. */
+  favorite: boolean;
   /** Só cartão: dia em que a fatura fecha e dia em que vence (1–31). */
   closingDay: number | null;
   dueDay: number | null;
@@ -32,6 +34,7 @@ export type AccountInput = {
   closingDay?: number | null;
   dueDay?: number | null;
   payAccountId?: number | null;
+  favorite?: boolean;
 };
 
 export const isCard = (a: Pick<Account, "kind">) => a.kind === "cartao";
@@ -42,6 +45,7 @@ type Row = {
   kind: AccountKind;
   initial_balance_cents: number;
   archived: number;
+  favorite: number;
   closing_day: number | null;
   due_day: number | null;
   pay_account_id: number | null;
@@ -70,6 +74,7 @@ function toAccount(r: Row): AccountWithBalance {
     kind: r.kind,
     initialBalanceCents: r.initial_balance_cents,
     archived: r.archived === 1,
+    favorite: r.favorite === 1,
     closingDay: r.closing_day,
     dueDay: r.due_day,
     payAccountId: r.pay_account_id,
@@ -101,10 +106,10 @@ export function createAccount(db: Db, input: AccountInput): number {
   const n = normalize(db, input);
   const { lastInsertRowid } = db
     .prepare(
-      `INSERT INTO accounts (name, kind, initial_balance_cents, closing_day, due_day, pay_account_id)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO accounts (name, kind, initial_balance_cents, closing_day, due_day, pay_account_id, favorite)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(input.name, input.kind, n.initial, n.closingDay, n.dueDay, n.payAccountId);
+    .run(input.name, input.kind, n.initial, n.closingDay, n.dueDay, n.payAccountId, input.favorite ? 1 : 0);
   return Number(lastInsertRowid);
 }
 
@@ -113,13 +118,26 @@ export function updateAccount(db: Db, id: number, input: AccountInput): void {
   if (!current) throw new Error("Conta não encontrada.");
   const n = normalize(db, input, current.kind);
   db.prepare(
-    `UPDATE accounts SET name = ?, kind = ?, initial_balance_cents = ?, closing_day = ?, due_day = ?, pay_account_id = ?
+    `UPDATE accounts SET name = ?, kind = ?, initial_balance_cents = ?, closing_day = ?, due_day = ?, pay_account_id = ?,
+       favorite = ?
      WHERE id = ?`,
-  ).run(input.name, input.kind, n.initial, n.closingDay, n.dueDay, n.payAccountId, id);
+  ).run(
+    input.name, input.kind, n.initial, n.closingDay, n.dueDay, n.payAccountId,
+    input.favorite && !current.archived ? 1 : 0, // conta arquivada nunca é favorita
+    id,
+  );
 }
 
 export function setAccountArchived(db: Db, id: number, archived: boolean): void {
-  db.prepare("UPDATE accounts SET archived = ? WHERE id = ?").run(archived ? 1 : 0, id);
+  // Arquivar tira a marca de favorita; desarquivar não a devolve.
+  db.prepare("UPDATE accounts SET archived = ?, favorite = 0 WHERE id = ?").run(archived ? 1 : 0, id);
+}
+
+export function setAccountFavorite(db: Db, id: number, favorite: boolean): void {
+  const account = getAccount(db, id);
+  if (!account) throw new Error("Conta não encontrada.");
+  if (account.archived) throw new Error("Conta arquivada não pode ser favorita.");
+  db.prepare("UPDATE accounts SET favorite = ? WHERE id = ?").run(favorite ? 1 : 0, id);
 }
 
 export function getAccount(db: Db, id: number): AccountWithBalance | undefined {
