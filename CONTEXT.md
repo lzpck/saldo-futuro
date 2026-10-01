@@ -41,6 +41,7 @@ _Evitar_: pago, confirmado
 
 **Em atraso**:
 Lançamento Previsto cuja data já passou sem ter sido Efetivado. Na Projeção de saldo conta como se fosse hoje, até o usuário Efetivar, reagendar ou descartar.
+Numa Conta de cartão a data da compra não conta: o Lançamento só está Em atraso quando a Fatura dele já venceu e ainda tem saldo a pagar (todas as compras da Fatura, mesmo com pagamento parcial). Os dias de atraso contam do vencimento da Fatura. Esse atraso aparece na lista de Lançamentos e no filtro, mas não no painel de Contas em aberto, onde fica só o pagamento da Fatura.
 
 **Saldo atual**:
 Saldo inicial da Conta mais todos os Lançamentos Efetivados dela.

@@ -22,7 +22,7 @@ function StatusBadge({ t, today }: { t: Transaction; today: string }) {
     </span>
   );
   if (isOverdue(t, today)) {
-    const days = daysBetween(t.date, today);
+    const days = daysBetween(t.overdueSince ?? t.date, today);
     return (
       <>
         <span className="shrink-0 whitespace-nowrap rounded-md bg-expense/15 px-1.5 py-0.5 text-[11px] font-medium text-expense">

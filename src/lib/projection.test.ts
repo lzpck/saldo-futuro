@@ -216,3 +216,9 @@ describe("openItems", () => {
     expect(openItems([], TODAY, 7)).toEqual({ overdue: [], upcoming: [] });
   });
 });
+
+describe("effectiveDate com compra em cartão", () => {
+  it("Previsto com data passada pesa hoje mesmo quando a fatura ainda não venceu", () => {
+    expect(effectiveDate({ status: "previsto", date: "2026-10-01", overdueSince: null } as never, TODAY)).toBe(TODAY);
+  });
+});

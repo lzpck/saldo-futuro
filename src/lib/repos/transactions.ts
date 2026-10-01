@@ -36,6 +36,12 @@ export type Transaction = {
   isEstimate: boolean;
   /** Explicação da Previsão de valor (só quando `isEstimate`). */
   estimateNote: string | null;
+  /**
+   * Só para compras e estornos em Conta de cartão (preenchido por `listSchedule`): vencimento da Fatura
+   * se ela venceu sem ser paga (a compra está Em atraso), ou null se não. Ausente nos demais Lançamentos,
+   * que ficam Em atraso pela própria data.
+   */
+  overdueSince?: string | null;
 };
 
 export type TransactionInput = {

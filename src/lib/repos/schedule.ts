@@ -1,5 +1,6 @@
 import type { Db } from "../db/connection";
-import { listInvoicePayments, payInvoice, type PayInvoiceInput } from "./cards";
+import { listAccounts, isCard } from "./accounts";
+import { cardInvoices, listInvoicePayments, payInvoice, type PayInvoiceInput } from "./cards";
 import { listWithOccurrences } from "./recurrences";
 import type { Transaction } from "./transactions";
 
@@ -9,7 +10,22 @@ import type { Transaction } from "./transactions";
  */
 export function listSchedule(db: Db, to: string, today: string): Transaction[] {
   const base = listWithOccurrences(db, to);
-  return [...base, ...listInvoicePayments(db, base, to, today)];
+  return [...markCardOverdue(db, base, today), ...listInvoicePayments(db, base, to, today)];
+}
+
+/**
+ * Compra em cartão está Em atraso quando a Fatura dela venceu e ainda tem saldo, não pela data da compra.
+ * Com pagamento parcial não dá para saber quais compras foram cobertas, então todas da Fatura atrasam.
+ */
+function markCardOverdue(db: Db, base: Transaction[], today: string): Transaction[] {
+  const since = new Map<number, string | null>();
+  for (const card of listAccounts(db).filter(isCard)) {
+    for (const inv of cardInvoices(db, card, base, today)) {
+      const late = inv.remainingCents > 0 && inv.dueDate < today ? inv.dueDate : null;
+      for (const item of inv.items) since.set(item.id, late);
+    }
+  }
+  return base.map((t) => (since.has(t.id) ? { ...t, overdueSince: since.get(t.id)! } : t));
 }
 
 /** Paga uma fatura usando a agenda (compras e ocorrências) até o fechamento dela. */

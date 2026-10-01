@@ -15,6 +15,9 @@ export type ProjectionTx = {
   toAccountId: number | null;
 };
 
+/** Lançamento que sabe se está Em atraso por outro critério que não a própria data (compra no cartão). */
+type OverdueAware = { overdueSince?: string | null };
+
 export type DayPhase = "real" | "hoje" | "futuro";
 
 export type DayBalance = {
@@ -26,14 +29,23 @@ export type DayBalance = {
   byAccount: Record<number, number>;
 };
 
-/** Um Previsto cuja data já passou. */
-export function isOverdue(tx: Pick<ProjectionTx, "status" | "date">, today: string): boolean {
-  return tx.status === "previsto" && tx.date < today;
+/**
+ * Um Previsto cuja data já passou. Compra em cartão não conta pela data dela, mas pelo vencimento
+ * da Fatura (`overdueSince`).
+ */
+export function isOverdue(tx: Pick<ProjectionTx, "status" | "date"> & OverdueAware, today: string): boolean {
+  if (tx.status !== "previsto") return false;
+  return tx.overdueSince !== undefined ? tx.overdueSince !== null && tx.overdueSince < today : tx.date < today;
 }
 
-/** Dia em que o lançamento passa a pesar no saldo. */
+/** Atrasado que passa a valer como hoje; compra em cartão atrasada fica na data da compra. */
+function movesToToday(tx: Pick<ProjectionTx, "status" | "date"> & OverdueAware, today: string): boolean {
+  return tx.overdueSince === undefined && isOverdue(tx, today);
+}
+
+/** Dia em que o lançamento passa a pesar no saldo: todo Previsto com data passada vale hoje, inclusive compra em cartão. */
 export function effectiveDate(tx: Pick<ProjectionTx, "status" | "date">, today: string): string {
-  return isOverdue(tx, today) ? today : tx.date;
+  return tx.status === "previsto" && tx.date < today ? today : tx.date;
 }
 
 /** Variação do lançamento sobre uma conta (0 se não a afeta). */
@@ -105,7 +117,7 @@ export type DayGroup<T extends ProjectionTx> = { date: string; items: T[] };
  * Agrupa lançamentos por dia para a lista, em ordem cronológica.
  * Atrasados aparecem sob o dia de hoje quando hoje está no período; fora dele, ficam na data original.
  */
-export function groupByDay<T extends ProjectionTx>(
+export function groupByDay<T extends ProjectionTx & OverdueAware>(
   transactions: T[],
   opts: { today: string; from: string; to: string },
 ): DayGroup<T>[] {
@@ -114,7 +126,7 @@ export function groupByDay<T extends ProjectionTx>(
   const groups = new Map<string, T[]>();
 
   for (const tx of transactions) {
-    const day = isOverdue(tx, today) && todayInRange ? today : tx.date;
+    const day = movesToToday(tx, today) && todayInRange ? today : tx.date;
     if (day < from || day > to) continue;
     const list = groups.get(day);
     if (list) list.push(tx);
@@ -127,8 +139,8 @@ export function groupByDay<T extends ProjectionTx>(
       date,
       // Atrasados primeiro (mais antigos antes), depois os do dia na ordem de cadastro.
       items: [...items].sort((x, y) => {
-        const ox = isOverdue(x, today) ? 0 : 1;
-        const oy = isOverdue(y, today) ? 0 : 1;
+        const ox = movesToToday(x, today) ? 0 : 1;
+        const oy = movesToToday(y, today) ? 0 : 1;
         return ox - oy || (ox === 0 ? x.date.localeCompare(y.date) : 0) || x.id - y.id;
       }),
     }));
@@ -146,7 +158,7 @@ export function lowestBalance(days: DayBalance[]): DayBalance | undefined {
  * Painel de contas em aberto: Previstos em atraso (mais antigos primeiro) e os que vencem
  * nos próximos `horizonDays` dias, contando hoje.
  */
-export function openItems<T extends Pick<ProjectionTx, "status" | "date" | "id">>(
+export function openItems<T extends Pick<ProjectionTx, "status" | "date" | "id"> & OverdueAware>(
   items: T[],
   today: string,
   horizonDays: number,
@@ -155,7 +167,8 @@ export function openItems<T extends Pick<ProjectionTx, "status" | "date" | "id">
   const planned = items.filter((t) => t.status === "previsto");
   const byDate = (a: T, b: T) => a.date.localeCompare(b.date) || a.id - b.id;
   return {
-    overdue: planned.filter((t) => isOverdue(t, today)).sort(byDate),
+    // Compra em cartão atrasada fica de fora: a ação é pagar a Fatura, que já está aqui como pagamento previsto.
+    overdue: planned.filter((t) => t.overdueSince === undefined && isOverdue(t, today)).sort(byDate),
     upcoming: planned.filter((t) => t.date >= today && t.date <= limit).sort(byDate),
   };
 }

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { openDb, type Db } from "../db/connection";
-import { dailyBalances } from "../projection";
+import { dailyBalances, isOverdue, openItems } from "../projection";
 import { createAccount, getAccount, listAccounts } from "./accounts";
 import { listCategories } from "./categories";
 import {
@@ -22,6 +22,7 @@ import {
   skipOccurrence,
   updateRecurrenceFrom,
 } from "./recurrences";
+import { listSchedule } from "./schedule";
 import { createTransaction, listTransactions } from "./transactions";
 
 let db: Db;
@@ -335,5 +336,54 @@ describe("compra parcelada", () => {
     expect(() => createInstallmentPurchase(db, { ...base(), categoryId: catId("Salário") })).toThrow(/não é de despesa/);
     expect(() => createInstallmentPurchase(db, { ...base(), mode: "total", installments: 5, valueCents: 3 })).toThrow(/total/);
     expect(listTransactions(db)).toHaveLength(0); // nada pela metade
+  });
+});
+
+describe("atraso de compra no cartão", () => {
+  // Cartão fecha dia 25 e vence dia 5 do mês seguinte; hoje é 15/10.
+  let card: number;
+  const buy = (date: string, over: Partial<Parameters<typeof createTransaction>[1]> = {}) =>
+    createTransaction(db, { kind: "despesa", status: "previsto", date, amountCents: 10_000, description: "Compra", accountId: card, ...over });
+  const purchase = (id: number) => listSchedule(db, "2026-12-31", TODAY).find((t) => t.id === id)!;
+
+  beforeEach(() => {
+    card = createAccount(db, { name: "Nubank", kind: "cartao", initialBalanceCents: 0, closingDay: 25, dueDay: 5, payAccountId: acc });
+  });
+
+  it("compra prevista com data passada não atrasa enquanto a fatura não venceu", () => {
+    const id = buy("2026-10-10"); // fatura 25/10, vence 05/11
+    expect(isOverdue(purchase(id), TODAY)).toBe(false);
+  });
+
+  it("compra prevista numa fatura vencida e não paga está em atraso desde o vencimento da fatura", () => {
+    const id = buy("2026-09-10"); // fatura 25/09, venceu 05/10
+    const t = purchase(id);
+    expect(isOverdue(t, TODAY)).toBe(true);
+    expect(t.overdueSince).toBe("2026-10-05");
+  });
+
+  it("pagamento parcial deixa todas as compras da fatura em atraso", () => {
+    const a = buy("2026-09-10");
+    const b = buy("2026-09-12");
+    createTransaction(db, { kind: "transferencia", status: "efetivado", date: "2026-10-06", amountCents: 10_000, description: "Pix", accountId: acc, toAccountId: card });
+    expect([a, b].map((id) => isOverdue(purchase(id), TODAY))).toEqual([true, true]);
+  });
+
+  it("fatura vencida e quitada não deixa compra em atraso", () => {
+    const id = buy("2026-09-10");
+    createTransaction(db, { kind: "transferencia", status: "efetivado", date: "2026-10-06", amountCents: 10_000, description: "Pix", accountId: acc, toAccountId: card });
+    expect(isOverdue(purchase(id), TODAY)).toBe(false);
+  });
+
+  it("fora do painel de contas em aberto: só o pagamento da fatura aparece atrasado", () => {
+    const id = buy("2026-09-10");
+    const { overdue } = openItems(listSchedule(db, "2026-12-31", TODAY), TODAY, 7);
+    expect(overdue.map((t) => t.id)).not.toContain(id);
+    expect(overdue.filter((t) => t.invoiceCardId === card)).toHaveLength(1);
+  });
+
+  it("lançamentos fora de cartão continuam atrasando pela própria data", () => {
+    const id = createTransaction(db, { kind: "despesa", status: "previsto", date: "2026-10-01", amountCents: 500, description: "Luz", accountId: acc });
+    expect(isOverdue(listSchedule(db, "2026-12-31", TODAY).find((t) => t.id === id)!, TODAY)).toBe(true);
   });
 });
