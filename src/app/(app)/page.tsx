@@ -88,6 +88,9 @@ export default function DashboardPage() {
           <div>
             <p className="text-muted">Despesas do mês</p>
             <Amount cents={expense} className="text-lg font-medium text-expense" />
+            <Link href={`/relatorios?mes=${month}`} className="block text-xs text-accent hover:underline">
+              Ver relatório
+            </Link>
           </div>
         </div>
       </section>

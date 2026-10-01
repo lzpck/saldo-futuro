@@ -45,8 +45,14 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   const history = listSchedule(db, to, today);
   const touchesAccount = (t: Transaction) =>
     !accountId || t.accountId === accountId || t.toAccountId === accountId;
+  // Filtrar por uma categoria principal inclui as subcategorias dela (é o que o relatório soma).
+  const categoryIds = new Set(
+    categoryId
+      ? [categoryId, ...categories.filter((c) => c.parentId === categoryId).map((c) => c.id)]
+      : [],
+  );
   const listed = history.filter(
-    (t) => touchesAccount(t) && (!categoryId || t.categoryId === categoryId),
+    (t) => touchesAccount(t) && (!categoryId || (t.categoryId !== null && categoryIds.has(t.categoryId))),
   );
 
   const groups = groupByDay(listed, { today, from, to });
