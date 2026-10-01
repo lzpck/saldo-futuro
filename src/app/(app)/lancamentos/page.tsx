@@ -12,13 +12,15 @@ import {
   shiftMonth,
   todayISO,
 } from "@/lib/dates";
+import { formatBRL } from "@/lib/money";
 import { dailyBalances, groupByDay, lowestBalance, type DayBalance } from "@/lib/projection";
 import { isCard, listAccounts } from "@/lib/repos/accounts";
+import { budgetWarnings } from "@/lib/repos/budgets";
 import { listCategories } from "@/lib/repos/categories";
 import { listSchedule } from "@/lib/repos/schedule";
 import type { Transaction } from "@/lib/repos/transactions";
 
-type SearchParams = Promise<{ mes?: string; conta?: string; categoria?: string }>;
+type SearchParams = Promise<{ mes?: string; conta?: string; categoria?: string; orcamento?: string }>;
 
 function totals(items: Transaction[], kind: "receita" | "despesa") {
   const mine = items.filter((t) => t.kind === kind);
@@ -83,6 +85,9 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   const income = totals(monthItems, "receita");
   const expense = totals(monthItems, "despesa");
 
+  const warnedId = Number(sp.orcamento);
+  const warnings = Number.isInteger(warnedId) && warnedId > 0 ? budgetWarnings(db, warnedId, month, today) : [];
+
   const link = (m: string) => {
     const q = new URLSearchParams({ mes: m });
     if (accountId) q.set("conta", String(accountId));
@@ -98,6 +103,21 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
           + Novo
         </Link>
       </div>
+
+      {warnings.length > 0 && (
+        <div role="status" className="rounded-xl border border-expense/40 bg-expense/10 px-3.5 py-2.5 text-sm text-expense">
+          {warnings.map((w) => (
+            <p key={w.category.id}>
+              <span aria-hidden>⛔ </span>
+              {w.status!.level === "estourou" ? "Orçamento estourado" : "Orçamento vai estourar"} em {w.category.name}:{" "}
+              {formatBRL(w.spentCents + w.plannedCents)} de {formatBRL(w.limitCents!)}.{" "}
+              <Link href={`/orcamento?mes=${month}`} className="underline">
+                Ver orçamento
+              </Link>
+            </p>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <Link href={link(shiftMonth(month, -1))} className="btn px-3" aria-label="Mês anterior">

@@ -6,6 +6,7 @@ import { refreshAll } from "./shared";
 import { getDb } from "@/lib/db/connection";
 import { todayISO } from "@/lib/dates";
 import { dateField, idField, intField, optionalDateField, parseTransactionForm, type FormState } from "@/lib/forms";
+import { budgetWarnings } from "@/lib/repos/budgets";
 import { createInstallmentPurchase } from "@/lib/repos/installments";
 import {
   createRecurrence,
@@ -23,6 +24,10 @@ export async function saveTransaction(_: FormState, fd: FormData): Promise<FormS
   if (!parsed.ok) return { error: parsed.error };
   const { data, repeat } = parsed;
   const db = getDb();
+  const month = data.date.slice(0, 7);
+  const warnsBudget = data.kind === "despesa" && data.categoryId != null;
+  // O aviso é só para quem faz estourar: se o limite já estava estourado antes, não repete.
+  const alreadyOver = warnsBudget && budgetWarnings(db, data.categoryId!, month, todayISO()).length > 0;
 
   try {
     const id = intField(fd, "id");
@@ -68,7 +73,12 @@ export async function saveTransaction(_: FormState, fd: FormData): Promise<FormS
   }
 
   refreshAll();
-  redirect(`/lancamentos?mes=${data.date.slice(0, 7)}`);
+  const query = new URLSearchParams({ mes: month });
+  // Aviso discreto (não bloqueia): a página recalcula o orçamento da categoria e mostra se estourou.
+  if (warnsBudget && !alreadyOver && budgetWarnings(db, data.categoryId!, month, todayISO()).length > 0) {
+    query.set("orcamento", String(data.categoryId));
+  }
+  redirect(`/lancamentos?${query}`);
 }
 
 /** Efetiva um lançamento gravado (id) ou uma ocorrência virtual (recurrenceId + occurrenceDate). */

@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { Amount } from "@/components/amount";
+import { BudgetBar, LEVEL } from "@/components/budget-bar";
 import { TransactionList, TransactionRow } from "@/components/transaction-list";
 import { getDb } from "@/lib/db/connection";
 import { formatDateBR, formatDayHeader, monthBounds, todayISO } from "@/lib/dates";
 import { addDays, dailyBalances, lowestBalance, openItems } from "@/lib/projection";
 import { ACCOUNT_KIND_LABEL, isCard, listAccounts, totalBalanceCents } from "@/lib/repos/accounts";
+import { monthBudgets } from "@/lib/repos/budgets";
 import { cardInvoices } from "@/lib/repos/cards";
 import { listWithOccurrences } from "@/lib/repos/recurrences";
 import { listSchedule } from "@/lib/repos/schedule";
@@ -42,6 +44,11 @@ export default function DashboardPage() {
   const nextInvoice = new Map(
     cards.map((c) => [c.id, cardInvoices(db, c, cardBase, today).find((i) => i.remainingCents > 0)]),
   );
+  // As 3 categorias com limite mais perto de estourar (ou já estouradas), considerando os previstos.
+  const nearLimit = monthBudgets(db, month, today)
+    .filter((i) => i.status)
+    .sort((a, b) => b.status!.projectedPercent - a.status!.projectedPercent)
+    .slice(0, 3);
   const endOfMonth = days.at(-1);
   const low = lowestBalance(days);
 
@@ -128,6 +135,40 @@ export default function DashboardPage() {
               </div>
             )}
           </>
+        )}
+      </section>
+
+      <section className="card" aria-labelledby="orcamento">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 id="orcamento" className="text-sm font-medium text-muted">
+            Orçamento do mês
+          </h2>
+          <Link href={`/orcamento?mes=${month}`} className="text-xs text-accent hover:underline">
+            Ver orçamento
+          </Link>
+        </div>
+        {nearLimit.length === 0 ? (
+          <p className="text-sm text-muted">Nenhum limite definido para este mês.</p>
+        ) : (
+          <ul className="space-y-4">
+            {nearLimit.map((i) => (
+              <li key={i.category.id}>
+                <p className="mb-1 flex items-center justify-between text-sm font-medium">
+                  <span>
+                    <span aria-hidden>{i.category.icon} </span>
+                    {i.category.name}
+                  </span>
+                  {i.status!.projectedLevel !== "ok" && (
+                    <span className={`text-xs ${LEVEL[i.status!.projectedLevel].text}`}>
+                      <span aria-hidden>{LEVEL[i.status!.projectedLevel].icon} </span>
+                      {i.status!.level === "estourou" ? "Estourou" : i.status!.projectedLevel === "estourou" ? "Vai estourar" : "Atenção"}
+                    </span>
+                  )}
+                </p>
+                <BudgetBar item={i} />
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

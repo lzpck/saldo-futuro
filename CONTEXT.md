@@ -87,7 +87,7 @@ Saldo total depois de todos os Lançamentos do dia; é o valor mostrado em cada 
 Classificação de uma Despesa ou Receita, com cor e ícone. Pode ter um nível de Subcategoria.
 
 **Orçamento**:
-Limite mensal de gasto por Categoria.
+Limite mensal de gasto por Categoria de despesa. O limite definido num mês vale nos seguintes até ser alterado. Quando o gasto o alcança, a Categoria está em Atenção ou Estourou.
 
 ## Relações
 

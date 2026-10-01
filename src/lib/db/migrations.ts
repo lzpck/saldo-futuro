@@ -152,6 +152,19 @@ const MIGRATIONS: Migration[] = [
       );
     `);
   },
+  // Fatia 6: Orçamento mensal por Categoria. O limite vale a partir do mês gravado até a próxima linha
+  // (0 = sem limite daqui em diante); a regra de herança fica em src/lib/budget.ts.
+  (db) => {
+    db.exec(`
+      CREATE TABLE budgets (
+        id INTEGER PRIMARY KEY,
+        category_id INTEGER NOT NULL REFERENCES categories(id),
+        month TEXT NOT NULL CHECK (month GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]'),
+        amount_cents INTEGER NOT NULL CHECK (amount_cents >= 0),
+        UNIQUE (category_id, month)
+      );
+    `);
+  },
 ];
 
 export function migrate(db: Database.Database): void {

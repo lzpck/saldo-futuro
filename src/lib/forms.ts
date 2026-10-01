@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isISODate } from "./dates";
+import { isISODate, isYearMonth } from "./dates";
 import { parseBRL } from "./money";
 import { ACCOUNT_KINDS } from "./repos/accounts";
 import type { TransactionInput } from "./repos/transactions";
@@ -280,4 +280,14 @@ export function parseRecurrenceEditForm(fd: FormData) {
       isVariable: fd.get("isVariable") !== null,
     },
   } as const;
+}
+
+/** Limite de orçamento de uma categoria a partir de um mês; vazio ou 0 remove o limite. */
+export function parseBudgetForm(fd: FormData) {
+  const month = text(fd.get("month"));
+  if (!isYearMonth(month)) throw new InvalidRequestError("month");
+  const raw = text(fd.get("limit"));
+  const cents = raw === "" ? 0 : parseBRL(raw);
+  if (cents === null || cents < 0) return { ok: false, error: "Informe um limite válido (ex.: 600,00). Use 0 para remover." } as const;
+  return { ok: true, data: { categoryId: idField(fd, "categoryId"), month, amountCents: cents } } as const;
 }

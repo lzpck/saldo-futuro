@@ -5,6 +5,7 @@ import {
   intField,
   InvalidRequestError,
   parseAccountForm,
+  parseBudgetForm,
   parseCategoryForm,
   parseRecurrenceEditForm,
   parseSeedForm,
@@ -188,5 +189,25 @@ describe("recorrência variável nos formulários", () => {
     const edit = { recurrenceId: "1", from: "2026-10-01", description: "Luz", accountId: "1", amount: "100,00" };
     expect(parseRecurrenceEditForm(fd(edit))).toMatchObject({ ok: true, data: { isVariable: false } });
     expect(parseRecurrenceEditForm(fd({ ...edit, isVariable: "on" }))).toMatchObject({ ok: true, data: { isVariable: true } });
+  });
+});
+
+describe("parseBudgetForm", () => {
+  const base = { categoryId: "4", month: "2026-10", limit: "600,00" };
+
+  it("converte o limite em centavos", () => {
+    expect(parseBudgetForm(fd(base))).toEqual({ ok: true, data: { categoryId: 4, month: "2026-10", amountCents: 60_000 } });
+    expect(parseBudgetForm(fd({ ...base, limit: "1.234,5" }))).toMatchObject({ data: { amountCents: 123_450 } });
+  });
+
+  it("vazio e 0 removem o limite", () => {
+    expect(parseBudgetForm(fd({ ...base, limit: "" }))).toMatchObject({ ok: true, data: { amountCents: 0 } });
+    expect(parseBudgetForm(fd({ ...base, limit: "0" }))).toMatchObject({ ok: true, data: { amountCents: 0 } });
+  });
+
+  it("rejeita valor inválido ou negativo e mês inválido", () => {
+    expect(parseBudgetForm(fd({ ...base, limit: "abc" }))).toMatchObject({ ok: false, error: /limite/i });
+    expect(parseBudgetForm(fd({ ...base, limit: "-5" }))).toMatchObject({ ok: false });
+    expect(() => parseBudgetForm(fd({ ...base, month: "2026-13" }))).toThrow(InvalidRequestError);
   });
 });
