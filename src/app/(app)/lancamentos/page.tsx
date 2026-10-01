@@ -4,15 +4,17 @@ import { BalanceChart } from "@/components/balance-chart";
 import { ScrollToToday } from "@/components/scroll-to-today";
 import { TransactionRow } from "@/components/transaction-list";
 import { getDb } from "@/lib/db/connection";
+import { formatDayHeader, monthBounds, monthLabel, shiftMonth, todayISO } from "@/lib/dates";
 import {
-  formatDayHeader,
-  isYearMonth,
-  monthBounds,
-  monthLabel,
-  shiftMonth,
-  todayISO,
-} from "@/lib/dates";
-import { formatBRL } from "@/lib/money";
+  filterTransactions,
+  filtersToParams,
+  hasActiveFilters,
+  isSearchMode,
+  paginate,
+  parseFilters,
+  summarize,
+} from "@/lib/filters";
+import { centsToInput, formatBRL } from "@/lib/money";
 import { dailyBalances, groupByDay, lowestBalance, type DayBalance } from "@/lib/projection";
 import { isCard, listAccounts } from "@/lib/repos/accounts";
 import { budgetWarnings } from "@/lib/repos/budgets";
@@ -20,7 +22,7 @@ import { listCategories } from "@/lib/repos/categories";
 import { listSchedule } from "@/lib/repos/schedule";
 import type { Transaction } from "@/lib/repos/transactions";
 
-type SearchParams = Promise<{ mes?: string; conta?: string; categoria?: string; orcamento?: string }>;
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function totals(items: Transaction[], kind: "receita" | "despesa") {
   const mine = items.filter((t) => t.kind === kind);
@@ -33,39 +35,42 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   const sp = await searchParams;
   const db = getDb();
   const today = todayISO();
-  const month = sp.mes && isYearMonth(sp.mes) ? sp.mes : today.slice(0, 7);
+  const filters = parseFilters(sp);
+  const searching = isSearchMode(filters);
+  const filtered = hasActiveFilters(filters);
+  const month = filters.month ?? today.slice(0, 7);
   const { from, to } = monthBounds(month);
-  const accountId = sp.conta ? Number(sp.conta) : undefined;
-  const categoryId = sp.categoria ? Number(sp.categoria) : undefined;
+  const accountId = filters.accountId ?? undefined;
   const todayInMonth = today >= from && today <= to;
 
   const allAccounts = listAccounts(db, { includeArchived: true });
   const categories = listCategories(db, { includeArchived: true });
   const scope = accountId ? allAccounts.filter((a) => a.id === accountId) : allAccounts.filter((a) => !a.archived && !isCard(a));
 
-  // Todo o histórico até o fim do mês: a projeção precisa dele para o saldo de abertura.
-  const history = listSchedule(db, to, today);
-  const touchesAccount = (t: Transaction) =>
-    !accountId || t.accountId === accountId || t.toAccountId === accountId;
-  // Filtrar por uma categoria principal inclui as subcategorias dela (é o que o relatório soma).
-  const categoryIds = new Set(
-    categoryId
-      ? [categoryId, ...categories.filter((c) => c.parentId === categoryId).map((c) => c.id)]
-      : [],
-  );
-  const listed = history.filter(
-    (t) => touchesAccount(t) && (!categoryId || (t.categoryId !== null && categoryIds.has(t.categoryId))),
-  );
+  // Busca sem "até": olha um ano à frente (ou só até hoje, sem previstos).
+  const searchTo = filters.to ?? (filters.includePlanned ? monthBounds(shiftMonth(today.slice(0, 7), 12)).to : today);
+  // Visão do mês: todo o histórico até o fim do mês, porque a projeção precisa dele para o saldo de abertura.
+  const history = listSchedule(db, searching ? searchTo : to, today);
+  const listed = filterTransactions(history, searching ? filters : { ...filters, from: null, to: null }, categories, today);
 
-  const groups = groupByDay(listed, { today, from, to });
+  const search = searching ? paginate(listed, filters.page) : null;
+  const searchTotals = searching ? summarize(listed) : null;
+  const searchGroups: { date: string; items: Transaction[] }[] = [];
+  for (const t of search?.items ?? []) {
+    const last = searchGroups.at(-1);
+    if (last?.date === t.date) last.items.push(t);
+    else searchGroups.push({ date: t.date, items: [t] });
+  }
+
+  const groups = searching ? [] : groupByDay(listed, { today, from, to });
   // Hoje sempre aparece no mês corrente, mesmo sem lançamentos, para marcar a divisória.
-  if (todayInMonth && !groups.some((g) => g.date === today)) {
+  if (!searching && todayInMonth && !groups.some((g) => g.date === today)) {
     groups.push({ date: today, items: [] });
     groups.sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  // Com filtro de categoria o saldo deixa de fazer sentido (a lista não é o fluxo todo).
-  const showBalance = !categoryId;
+  // Só o filtro de conta mantém o saldo: qualquer outro deixa a lista de ser o fluxo todo.
+  const showBalance = !searching && !filters.categoryId && !filters.kind && !filters.status && filters.includePlanned;
   const days: DayBalance[] = showBalance
     ? dailyBalances({
         accounts: scope.map((a) => ({ id: a.id, initialBalanceCents: a.initialBalanceCents })),
@@ -85,13 +90,13 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   const income = totals(monthItems, "receita");
   const expense = totals(monthItems, "despesa");
 
-  const warnedId = Number(sp.orcamento);
+  const warnedId = Number(typeof sp.orcamento === "string" ? sp.orcamento : "");
   const warnings = Number.isInteger(warnedId) && warnedId > 0 ? budgetWarnings(db, warnedId, month, today) : [];
 
-  const link = (m: string) => {
-    const q = new URLSearchParams({ mes: m });
-    if (accountId) q.set("conta", String(accountId));
-    if (categoryId) q.set("categoria", String(categoryId));
+  const link = (m: string) => `/lancamentos?${filtersToParams({ ...filters, month: m })}`;
+  const pageLink = (n: number) => {
+    const q = filtersToParams(filters);
+    q.set("pagina", String(n));
     return `/lancamentos?${q}`;
   };
 
@@ -119,15 +124,17 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <Link href={link(shiftMonth(month, -1))} className="btn px-3" aria-label="Mês anterior">
-          ‹
-        </Link>
-        <p className="font-medium">{monthLabel(month)}</p>
-        <Link href={link(shiftMonth(month, 1))} className="btn px-3" aria-label="Próximo mês">
-          ›
-        </Link>
-      </div>
+      {!searching && (
+        <div className="flex items-center justify-between">
+          <Link href={link(shiftMonth(month, -1))} className="btn px-3" aria-label="Mês anterior">
+            ‹
+          </Link>
+          <p className="font-medium">{monthLabel(month)}</p>
+          <Link href={link(shiftMonth(month, 1))} className="btn px-3" aria-label="Próximo mês">
+            ›
+          </Link>
+        </div>
+      )}
 
       {showBalance && (
         <section className="card space-y-4">
@@ -148,49 +155,179 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
         </section>
       )}
 
-      <form className="grid grid-cols-2 gap-3" method="get">
-        <input type="hidden" name="mes" value={month} />
-        <select name="conta" defaultValue={accountId ?? ""} className="input" aria-label="Filtrar por conta">
-          <option value="">Todas as contas</option>
-          {allAccounts.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </select>
-        <select name="categoria" defaultValue={categoryId ?? ""} className="input" aria-label="Filtrar por categoria">
-          <option value="">Todas as categorias</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.parentId ? "— " : ""}
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <button className="btn col-span-2">Filtrar</button>
-      </form>
-      {categoryId && (
-        <p className="text-xs text-muted">O saldo por dia some quando há filtro de categoria, porque a lista não mostra todo o fluxo.</p>
+      <details className="card py-3" open={filtered}>
+        <summary className="cursor-pointer text-sm font-medium">Busca e filtros{filtered ? " (ativos)" : ""}</summary>
+        <form className="mt-3 grid grid-cols-2 gap-3" method="get" role="search">
+          {filters.month && <input type="hidden" name="mes" value={filters.month} />}
+          <input
+            type="search"
+            name="q"
+            defaultValue={filters.text}
+            placeholder="Buscar na descrição"
+            className="input col-span-2"
+            aria-label="Buscar na descrição"
+          />
+          <select name="tipo" defaultValue={filters.kind ?? ""} className="input" aria-label="Filtrar por tipo">
+            <option value="">Todos os tipos</option>
+            <option value="receita">Receita</option>
+            <option value="despesa">Despesa</option>
+            <option value="transferencia">Transferência</option>
+          </select>
+          <select name="situacao" defaultValue={filters.status ?? ""} className="input" aria-label="Filtrar por situação">
+            <option value="">Todas as situações</option>
+            <option value="previsto">Previsto</option>
+            <option value="efetivado">Efetivado</option>
+            <option value="atrasado">Em atraso</option>
+          </select>
+          <select name="conta" defaultValue={accountId ?? ""} className="input" aria-label="Filtrar por conta">
+            <option value="">Todas as contas</option>
+            {allAccounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+          <select name="categoria" defaultValue={filters.categoryId ?? ""} className="input" aria-label="Filtrar por categoria">
+            <option value="">Todas as categorias</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.parentId ? "— " : ""}
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <input
+            name="min"
+            inputMode="decimal"
+            defaultValue={filters.minCents !== null ? centsToInput(filters.minCents) : ""}
+            placeholder="Valor mínimo"
+            className="input"
+            aria-label="Valor mínimo"
+          />
+          <input
+            name="max"
+            inputMode="decimal"
+            defaultValue={filters.maxCents !== null ? centsToInput(filters.maxCents) : ""}
+            placeholder="Valor máximo"
+            className="input"
+            aria-label="Valor máximo"
+          />
+          <label className="text-xs text-muted">
+            De
+            <input type="date" name="de" defaultValue={filters.from ?? ""} className="input mt-1" aria-label="Data inicial" />
+          </label>
+          <label className="text-xs text-muted">
+            Até
+            <input type="date" name="ate" defaultValue={filters.to ?? ""} className="input mt-1" aria-label="Data final" />
+          </label>
+          <select
+            name="previstos"
+            defaultValue={filters.includePlanned ? "1" : "0"}
+            className="input col-span-2"
+            aria-label="Previstos"
+          >
+            <option value="1">Incluir previstos</option>
+            <option value="0">Só o que já aconteceu</option>
+          </select>
+          <button className="btn btn-primary">Filtrar</button>
+          <Link href="/lancamentos" className="btn">
+            Limpar filtros
+          </Link>
+        </form>
+      </details>
+      {filters.periodSwapped && (
+        <p role="status" className="text-xs text-muted">As datas estavam invertidas; troquei “De” e “Até”.</p>
+      )}
+      {!searching && !showBalance && filtered && (
+        <p className="text-xs text-muted">O saldo por dia some quando há filtro, porque a lista não mostra todo o fluxo.</p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        <div className="card py-3">
-          <p className="text-muted">Receitas</p>
-          <Amount cents={income.done} className="font-medium text-income" />
-          {income.planned > 0 && (
-            <p className="text-xs text-muted">+ <Amount cents={income.planned} /> previstas</p>
-          )}
-        </div>
-        <div className="card py-3">
-          <p className="text-muted">Despesas</p>
-          <Amount cents={expense.done} className="font-medium text-expense" />
-          {expense.planned > 0 && (
-            <p className="text-xs text-muted">+ <Amount cents={expense.planned} /> previstas</p>
-          )}
-        </div>
-      </div>
+      {searching && !filters.to && filters.includePlanned && (
+        <p className="text-xs text-muted">
+          Sem data final, a busca olha até {monthLabel(shiftMonth(today.slice(0, 7), 12))}. Informe “Até” para ir além.
+        </p>
+      )}
 
-      {groups.length === 0 ? (
+      {searching && searchTotals ? (
+        <div className="grid grid-cols-3 gap-3 text-sm" aria-label="Totais da busca">
+          <div className="card py-3">
+            <p className="text-muted">Receitas</p>
+            <Amount cents={searchTotals.incomeCents} className="font-medium text-income" />
+          </div>
+          <div className="card py-3">
+            <p className="text-muted">Despesas</p>
+            <Amount cents={searchTotals.expenseCents} className="font-medium text-expense" />
+          </div>
+          <div className="card py-3">
+            <p className="text-muted">Líquido</p>
+            <Amount cents={searchTotals.netCents} className="font-medium" />
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="card py-3">
+            <p className="text-muted">Receitas</p>
+            <Amount cents={income.done} className="font-medium text-income" />
+            {income.planned > 0 && (
+              <p className="text-xs text-muted">+ <Amount cents={income.planned} /> previstas</p>
+            )}
+          </div>
+          <div className="card py-3">
+            <p className="text-muted">Despesas</p>
+            <Amount cents={expense.done} className="font-medium text-expense" />
+            {expense.planned > 0 && (
+              <p className="text-xs text-muted">+ <Amount cents={expense.planned} /> previstas</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {search ? (
+        <>
+          <p className="text-sm text-muted">
+            {listed.length} {listed.length === 1 ? "resultado" : "resultados"}
+          </p>
+          {listed.length === 0 ? (
+            <div className="card py-8 text-center text-sm text-muted">Nenhum lançamento encontrado.</div>
+          ) : (
+            <div className="space-y-3">
+              {searchGroups.map((g) => (
+                <section key={g.date} className="card py-3" aria-label={formatDayHeader(g.date)}>
+                  <header className="border-b border-line pb-2">
+                    <h2 className="text-sm font-medium">{formatDayHeader(g.date)}</h2>
+                  </header>
+                  <ul className="divide-y divide-line">
+                    {g.items.map((t) => (
+                      <TransactionRow key={t.id} t={t} actions />
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
+          {search.pages > 1 && (
+            <nav className="flex items-center justify-between text-sm" aria-label="Paginação">
+              {search.page > 1 ? (
+                <Link href={pageLink(search.page - 1)} className="btn">
+                  ‹ Anterior
+                </Link>
+              ) : (
+                <span />
+              )}
+              <p className="text-muted">
+                Página {search.page} de {search.pages}
+              </p>
+              {search.page < search.pages ? (
+                <Link href={pageLink(search.page + 1)} className="btn">
+                  Próxima ›
+                </Link>
+              ) : (
+                <span />
+              )}
+            </nav>
+          )}
+        </>
+      ) : groups.length === 0 ? (
         <div className="card py-8 text-center text-sm text-muted">Nenhum lançamento neste mês.</div>
       ) : (
         <div className="space-y-3">
@@ -245,7 +382,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
           })}
         </div>
       )}
-      {todayInMonth && <ScrollToToday targetId="hoje" />}
+      {!searching && todayInMonth && <ScrollToToday targetId="hoje" />}
     </div>
   );
 }
