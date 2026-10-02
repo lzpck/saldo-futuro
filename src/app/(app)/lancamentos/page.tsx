@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Amount } from "@/components/amount";
+import { FormLink } from "@/components/form-link";
 import { BalanceChart } from "@/components/balance-chart";
 import { ScrollToToday } from "@/components/scroll-to-today";
 import { TransactionRow } from "@/components/transaction-list";
@@ -14,10 +15,9 @@ import {
   parseFilters,
   summarize,
 } from "@/lib/filters";
-import { centsToInput, formatBRL } from "@/lib/money";
+import { centsToInput } from "@/lib/money";
 import { dailyBalances, groupByDay, lowestBalance, type DayBalance } from "@/lib/projection";
 import { isCard, listAccounts } from "@/lib/repos/accounts";
-import { budgetWarnings } from "@/lib/repos/budgets";
 import { listCategories } from "@/lib/repos/categories";
 import { listSchedule } from "@/lib/repos/schedule";
 import type { Transaction } from "@/lib/repos/transactions";
@@ -91,9 +91,6 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   const income = totals(monthItems, "receita");
   const expense = totals(monthItems, "despesa");
 
-  const warnedId = Number(typeof sp.orcamento === "string" ? sp.orcamento : "");
-  const warnings = Number.isInteger(warnedId) && warnedId > 0 ? budgetWarnings(db, warnedId, month, today) : [];
-
   const link = (m: string) => `/lancamentos?${filtersToParams({ ...filters, month: m })}`;
   const pageLink = (n: number) => {
     const q = filtersToParams(filters);
@@ -105,25 +102,10 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Lançamentos</h1>
-        <Link href="/lancamentos/novo" className="btn btn-primary">
+        <FormLink href="/lancamentos/novo" className="btn btn-primary">
           + Novo
-        </Link>
+        </FormLink>
       </div>
-
-      {warnings.length > 0 && (
-        <div role="status" className="rounded-xl border border-expense/40 bg-expense/10 px-3.5 py-2.5 text-sm text-expense">
-          {warnings.map((w) => (
-            <p key={w.category.id}>
-              <span aria-hidden>⛔ </span>
-              {w.status!.level === "estourou" ? "Orçamento estourado" : "Orçamento vai estourar"} em {w.category.name}:{" "}
-              {formatBRL(w.spentCents + w.plannedCents)} de {formatBRL(w.limitCents!)}.{" "}
-              <Link href={`/orcamento?mes=${month}`} className="underline">
-                Ver orçamento
-              </Link>
-            </p>
-          ))}
-        </div>
-      )}
 
       {!searching && (
         <div className="flex items-center justify-between">

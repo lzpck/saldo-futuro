@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FormLink } from "@/components/form-link";
 import { notFound } from "next/navigation";
 import { Amount } from "@/components/amount";
 import { TransactionRow } from "@/components/transaction-list";
@@ -116,9 +117,9 @@ export default async function CardPage({ params }: PageProps<"/cartoes/[id]">) {
           <Amount cents={owed} className="text-2xl font-semibold" />
           <p className="mt-0.5 text-xs text-muted">Inclui compras previstas e parcelas futuras.</p>
         </div>
-        <Link href={`/lancamentos/novo?conta=${card.id}`} className="btn btn-primary">
+        <FormLink href={`/lancamentos/novo?conta=${card.id}`} className="btn btn-primary">
           + Compra
-        </Link>
+        </FormLink>
       </div>
 
       {unpaid.length === 0 ? (

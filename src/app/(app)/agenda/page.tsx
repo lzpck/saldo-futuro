@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FormLink } from "@/components/form-link";
 import { Amount } from "@/components/amount";
 import { formatDateBR, todayISO } from "@/lib/dates";
 import { getDb } from "@/lib/db/connection";
@@ -30,7 +31,7 @@ export default function AgendaPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">Recorrências</h2>
-          <Link href="/lancamentos/novo?repeat=recorrente" className="btn btn-primary">+ Nova</Link>
+          <FormLink href="/lancamentos/novo?repeat=recorrente" className="btn btn-primary">+ Nova</FormLink>
         </div>
         {active.length === 0 && (
           <p className="card text-sm text-muted">
@@ -84,7 +85,7 @@ export default function AgendaPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">Compras parceladas</h2>
-          <Link href="/lancamentos/novo?repeat=parcelado" className="btn btn-primary">+ Nova</Link>
+          <FormLink href="/lancamentos/novo?repeat=parcelado" className="btn btn-primary">+ Nova</FormLink>
         </div>
         {purchases.length === 0 && <p className="card text-sm text-muted">Nenhuma compra parcelada.</p>}
         <ul className="space-y-3">

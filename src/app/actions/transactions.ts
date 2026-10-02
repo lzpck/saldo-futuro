@@ -17,6 +17,7 @@ import {
 } from "@/lib/repos/recurrences";
 import { payInvoiceFromSchedule } from "@/lib/repos/schedule";
 import { createTransaction, markEffectuated, updateTransaction } from "@/lib/repos/transactions";
+import { afterSaveUrl } from "@/lib/return-to";
 
 export async function saveTransaction(_: FormState, fd: FormData): Promise<FormState> {
   await verifySession();
@@ -73,12 +74,27 @@ export async function saveTransaction(_: FormState, fd: FormData): Promise<FormS
   }
 
   refreshAll();
-  const query = new URLSearchParams({ mes: month });
-  // Aviso discreto (não bloqueia): a página recalcula o orçamento da categoria e mostra se estourou.
-  if (warnsBudget && !alreadyOver && budgetWarnings(db, data.categoryId!, month, todayISO()).length > 0) {
-    query.set("orcamento", String(data.categoryId));
-  }
-  redirect(`/lancamentos?${query}`);
+  // Aviso discreto (não bloqueia): qualquer tela de destino o exibe, recalculando o orçamento da categoria.
+  const notice =
+    warnsBudget && !alreadyOver && budgetWarnings(db, data.categoryId!, month, todayISO()).length > 0
+      ? `${data.categoryId}_${month}`
+      : undefined;
+  redirect(afterSaveUrl(fd.get("voltar"), month, notice));
+}
+
+export type BudgetNotice = { categoryName: string; exceeded: boolean; usedCents: number; limitCents: number; month: string };
+
+/** Avisos de orçamento da categoria no mês, para a faixa exibida após salvar um lançamento. */
+export async function loadBudgetNotice(categoryId: number, month: string): Promise<BudgetNotice[]> {
+  await verifySession();
+  if (!Number.isInteger(categoryId) || categoryId <= 0 || !/^\d{4}-\d{2}$/.test(month)) return [];
+  return budgetWarnings(getDb(), categoryId, month, todayISO()).map((w) => ({
+    categoryName: w.category.name,
+    exceeded: w.status!.level === "estourou",
+    usedCents: w.spentCents + w.plannedCents,
+    limitCents: w.limitCents!,
+    month,
+  }));
 }
 
 /** Efetiva um lançamento gravado (id) ou uma ocorrência virtual (recurrenceId + occurrenceDate). */

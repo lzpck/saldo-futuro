@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FormLink } from "@/components/form-link";
 import { Amount } from "@/components/amount";
 import { BudgetBar, LEVEL } from "@/components/budget-bar";
 import { OpenInvoice } from "@/components/open-invoice";
@@ -244,13 +245,13 @@ export default function DashboardPage() {
         <TransactionList items={recent} />
       </section>
 
-      <Link
+      <FormLink
         href="/lancamentos/novo"
         aria-label="Novo lançamento"
         className="fixed bottom-20 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-3xl text-accent-fg shadow-lg shadow-black/40 transition hover:brightness-110 md:bottom-8 md:right-8"
       >
         +
-      </Link>
+      </FormLink>
     </div>
   );
 }

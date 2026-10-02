@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useActionState, useState } from "react";
 import { saveTransaction } from "@/app/actions/transactions";
 import { SeedFields } from "@/components/seed-fields";
@@ -11,6 +12,7 @@ import type { Category } from "@/lib/repos/categories";
 import type { Transaction, TransactionKind, TransactionStatus } from "@/lib/repos/transactions";
 import { AccountOptions } from "@/components/account-options";
 import { defaultAccountId } from "@/lib/account-options";
+import { RETURN_PARAM } from "@/lib/return-to";
 
 const KINDS: { value: TransactionKind; label: string }[] = [
   { value: "despesa", label: "Despesa" },
@@ -46,6 +48,7 @@ export function TransactionForm({
   initialAccountId?: number;
 }) {
   const [state, action, pending] = useActionState(saveTransaction, undefined);
+  const returnTo = useSearchParams().get(RETURN_PARAM);
   const [kind, setKind] = useState<TransactionKind>(existing?.kind ?? "despesa");
   const [date, setDate] = useState(existing?.date ?? defaultDate);
   const [status, setStatus] = useState<TransactionStatus>(existing?.status ?? "efetivado");
@@ -78,6 +81,7 @@ export function TransactionForm({
 
   return (
     <form action={action} className="card space-y-4">
+      {returnTo && <input type="hidden" name="voltar" value={returnTo} />}
       {existing && <input type="hidden" name="id" value={existing.id} />}
       {occurrence && (
         <>

@@ -6,6 +6,7 @@ import { listAccounts } from "@/lib/repos/accounts";
 import { listCategories } from "@/lib/repos/categories";
 import { getRecurrence, predictOccurrence } from "@/lib/repos/recurrences";
 import type { Transaction } from "@/lib/repos/transactions";
+import { safeReturnTo, withReturnTo } from "@/lib/return-to";
 import { TransactionForm } from "../../../../lancamentos/transaction-form";
 
 export default async function OccurrencePage({
@@ -13,7 +14,7 @@ export default async function OccurrencePage({
   searchParams,
 }: PageProps<"/agenda/ocorrencia/[recurrenceId]/[date]">) {
   const { recurrenceId, date } = await params;
-  const { pago } = await searchParams;
+  const { pago, voltar } = await searchParams;
   const db = getDb();
   const rule = getRecurrence(db, Number(recurrenceId));
   if (!rule || occurrencesBetween(rule, date, date).length !== 1) notFound();
@@ -22,7 +23,7 @@ export default async function OccurrencePage({
   const saved = db
     .prepare("SELECT id FROM transactions WHERE recurrence_id = ? AND occurrence_date = ?")
     .get(rule.id, date) as { id: number } | undefined;
-  if (saved) redirect(`/lancamentos/${saved.id}`);
+  if (saved) redirect(withReturnTo(`/lancamentos/${saved.id}`, safeReturnTo(voltar)));
 
   // Recorrência variável: o valor pré-preenchido é a previsão; quem paga informa o real.
   const prediction = predictOccurrence(db, rule, date);

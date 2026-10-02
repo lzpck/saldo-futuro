@@ -4,6 +4,7 @@ import type { Transaction } from "@/lib/repos/transactions";
 import { daysBetween, formatDateBR, todayISO } from "@/lib/dates";
 import { isOverdue } from "@/lib/projection";
 import { Amount } from "./amount";
+import { FormLink } from "./form-link";
 
 function signedCents(t: Transaction): number {
   if (t.kind === "receita") return t.amountCents;
@@ -55,6 +56,15 @@ function RowIdentity({ t }: { t: Transaction }) {
   );
 }
 
+/** Fatura abre a página do cartão; os demais abrem o formulário e lembram de onde vieram. */
+function RowLink({ href, isInvoice, className, children }: { href: string; isInvoice: boolean; className: string; children: React.ReactNode }) {
+  return isInvoice ? (
+    <Link href={href} className={className}>{children}</Link>
+  ) : (
+    <FormLink href={href} className={className}>{children}</FormLink>
+  );
+}
+
 export function TransactionRow({ t, actions = false }: { t: Transaction; actions?: boolean }) {
   const today = todayISO();
   const subtitle =
@@ -76,7 +86,7 @@ export function TransactionRow({ t, actions = false }: { t: Transaction; actions
       >
         {isInvoice ? "💳" : t.kind === "transferencia" ? "⇄" : (t.categoryIcon ?? "•")}
       </div>
-      <Link href={href} className="min-w-0 flex-1">
+      <RowLink href={href} isInvoice={isInvoice} className="min-w-0 flex-1">
         <p className="flex items-center gap-1.5">
           <span className="truncate text-sm font-medium">{t.description}</span>
           {t.installmentNo !== null && t.installmentTotal !== null && (
@@ -96,7 +106,7 @@ export function TransactionRow({ t, actions = false }: { t: Transaction; actions
             {formatDateBR(t.date)} · {subtitle}
           </span>
         </p>
-      </Link>
+      </RowLink>
       <div className={`text-right text-sm font-medium ${planned ? "opacity-70" : ""}`}>
         {isInvoice ? (
           <Amount cents={-t.amountCents} signed />
@@ -110,13 +120,13 @@ export function TransactionRow({ t, actions = false }: { t: Transaction; actions
         <div className="flex items-center gap-2 max-sm:w-full max-sm:justify-end">
           {planned && t.isEstimate && t.recurrenceId !== null && t.occurrenceDate !== null ? (
             // Valor variável: o real é informado na página da ocorrência, nunca pago em silêncio pela estimativa.
-            <Link
+            <FormLink
               href={`/agenda/ocorrencia/${t.recurrenceId}/${t.occurrenceDate}?pago=1`}
               className="btn px-2.5 py-1 text-xs"
               aria-label={`Efetivar ${t.description}`}
             >
               {t.kind === "receita" ? "Recebi" : "Paguei"}
-            </Link>
+            </FormLink>
           ) : (
             planned && (
             <form action={effectuateTransaction}>
