@@ -169,6 +169,6 @@ export function openItems<T extends Pick<ProjectionTx, "status" | "date" | "id">
   return {
     // Compra em cartão atrasada fica de fora: a ação é pagar a Fatura, que já está aqui como pagamento previsto.
     overdue: planned.filter((t) => t.overdueSince === undefined && isOverdue(t, today)).sort(byDate),
-    upcoming: planned.filter((t) => t.date >= today && t.date <= limit).sort(byDate),
+    upcoming: planned.filter((t) => t.overdueSince === undefined && t.date >= today && t.date <= limit).sort(byDate),
   };
 }

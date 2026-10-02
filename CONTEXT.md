@@ -70,6 +70,7 @@ Descartar uma única Ocorrência sem afetar as demais. Excluir um Lançamento qu
 
 **Conta em aberto**:
 Lançamento Previsto que ainda precisa de ação do usuário: Em atraso ou vencendo nos próximos dias. Aparece no painel do Resumo.
+Numa Conta de cartão, a Conta em aberto é a Fatura (o que falta pagar dela), nunca as compras avulsas. A próxima Fatura em aberto de cada cartão conta mesmo vencendo depois do horizonte.
 _Evitar_: pendência
 
 **Quitar o restante**:

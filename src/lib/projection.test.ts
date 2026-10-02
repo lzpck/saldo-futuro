@@ -212,6 +212,15 @@ describe("openItems", () => {
     expect(r.upcoming.map((t) => t.id)).toEqual([hoje.id, limite.id]);
   });
 
+  it("compra em cartão nunca entra: a ação é pagar a Fatura", () => {
+    const compra = { ...tx({ date: "2026-10-18", amountCents: 1, status: "previsto" }), overdueSince: null };
+    const compraAtrasada = { ...tx({ date: "2026-09-01", amountCents: 1, status: "previsto" }), overdueSince: "2026-09-10" };
+    const normal = tx({ date: "2026-10-18", amountCents: 1, status: "previsto" });
+    const r = openItems([compra, compraAtrasada, normal], TODAY, 7);
+    expect(r.overdue).toEqual([]);
+    expect(r.upcoming.map((t) => t.id)).toEqual([normal.id]);
+  });
+
   it("sem nada em aberto devolve listas vazias", () => {
     expect(openItems([], TODAY, 7)).toEqual({ overdue: [], upcoming: [] });
   });

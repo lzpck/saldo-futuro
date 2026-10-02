@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Amount } from "@/components/amount";
 import { BudgetBar, LEVEL } from "@/components/budget-bar";
+import { OpenInvoice } from "@/components/open-invoice";
 import { TransactionList, TransactionRow } from "@/components/transaction-list";
 import { getDb } from "@/lib/db/connection";
 import { formatDateBR, formatDayHeader, monthBounds, todayISO } from "@/lib/dates";
@@ -10,7 +11,7 @@ import { monthBudgets } from "@/lib/repos/budgets";
 import { cardInvoices } from "@/lib/repos/cards";
 import { listWithOccurrences } from "@/lib/repos/recurrences";
 import { listSchedule } from "@/lib/repos/schedule";
-import { listTransactions } from "@/lib/repos/transactions";
+import { listTransactions, type Transaction } from "@/lib/repos/transactions";
 
 export default function DashboardPage() {
   const db = getDb();
@@ -41,9 +42,27 @@ export default function DashboardPage() {
   });
   // Primeira fatura com valor em aberto de cada cartão.
   const cardBase = cards.length ? listWithOccurrences(db, addDays(today, 400)) : [];
+  const invoicesByCard = new Map(cards.map((c) => [c.id, cardInvoices(db, c, cardBase, today)]));
   const nextInvoice = new Map(
-    cards.map((c) => [c.id, cardInvoices(db, c, cardBase, today).find((i) => i.remainingCents > 0)]),
+    cards.map((c) => [c.id, invoicesByCard.get(c.id)!.find((i) => i.remainingCents > 0)]),
   );
+  // Faturas no painel: o pagamento previsto vira a fatura expansível; a próxima de cada cartão que vence depois do horizonte fica à parte.
+  const invoiceOf = (t: Transaction) =>
+    t.invoiceCardId === null ? undefined : invoicesByCard.get(t.invoiceCardId)?.find((i) => i.closingDate === t.invoiceClosing);
+  const openRow = (t: Transaction) => {
+    const inv = invoiceOf(t);
+    const card = cards.find((c) => c.id === t.invoiceCardId);
+    return inv && card?.closingDay != null ? (
+      <OpenInvoice key={t.id} inv={inv} cardName={card.name} closingDay={card.closingDay} today={today} canPay />
+    ) : (
+      <TransactionRow key={t.id} t={t} actions />
+    );
+  };
+  const farLimit = addDays(today, horizon);
+  const laterInvoices = cards.flatMap((c) => {
+    const inv = nextInvoice.get(c.id);
+    return inv && inv.dueDate > farLimit && c.closingDay !== null ? [{ inv, card: c, closingDay: c.closingDay }] : [];
+  });
   // As 3 categorias com limite mais perto de estourar (ou já estouradas), considerando os previstos.
   const nearLimit = monthBudgets(db, month, today)
     .filter((i) => i.status)
@@ -106,7 +125,7 @@ export default function DashboardPage() {
         <h2 id="em-aberto" className="mb-1 text-sm font-medium text-muted">
           Contas em aberto
         </h2>
-        {open.overdue.length === 0 && open.upcoming.length === 0 ? (
+        {open.overdue.length === 0 && open.upcoming.length === 0 && laterInvoices.length === 0 ? (
           <p className="py-4 text-sm text-muted">Tudo em dia: nada em atraso nem vencendo nos próximos {horizon} dias.</p>
         ) : (
           <>
@@ -116,9 +135,7 @@ export default function DashboardPage() {
                   Em atraso ({open.overdue.length})
                 </h3>
                 <ul className="divide-y divide-line">
-                  {open.overdue.map((t) => (
-                    <TransactionRow key={t.id} t={t} actions />
-                  ))}
+                  {open.overdue.map(openRow)}
                 </ul>
               </div>
             )}
@@ -128,8 +145,23 @@ export default function DashboardPage() {
                   Próximos {horizon} dias ({open.upcoming.length})
                 </h3>
                 <ul className="divide-y divide-line">
-                  {open.upcoming.map((t) => (
-                    <TransactionRow key={t.id} t={t} actions />
+                  {open.upcoming.map(openRow)}
+                </ul>
+              </div>
+            )}
+            {laterInvoices.length > 0 && (
+              <div>
+                <h3 className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted">Faturas abertas</h3>
+                <ul className="divide-y divide-line">
+                  {laterInvoices.map(({ inv, card, closingDay }) => (
+                    <OpenInvoice
+                      key={`${card.id}-${inv.closingDate}`}
+                      inv={inv}
+                      cardName={card.name}
+                      closingDay={closingDay}
+                      today={today}
+                      canPay={false}
+                    />
                   ))}
                 </ul>
               </div>
