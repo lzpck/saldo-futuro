@@ -1,12 +1,13 @@
 import type { Db } from "../db/connection";
 
-export const ACCOUNT_KINDS = ["corrente", "carteira", "beneficio", "cartao"] as const;
+export const ACCOUNT_KINDS = ["corrente", "carteira", "beneficio", "caixinha", "cartao"] as const;
 export type AccountKind = (typeof ACCOUNT_KINDS)[number];
 
 export const ACCOUNT_KIND_LABEL: Record<AccountKind, string> = {
   corrente: "Conta corrente",
   carteira: "Carteira",
   beneficio: "Benefício",
+  caixinha: "Caixinha",
   cartao: "Cartão de crédito",
 };
 
@@ -38,6 +39,9 @@ export type AccountInput = {
 };
 
 export const isCard = (a: Pick<Account, "kind">) => a.kind === "cartao";
+export const isSavings = (a: Pick<Account, "kind">) => a.kind === "caixinha";
+/** Conta do dia a dia: nem cartão nem Caixinha. Só estas compõem o Saldo total e a Projeção padrão. */
+export const isSpendable = (a: Pick<Account, "kind">) => !isCard(a) && !isSavings(a);
 
 type Row = {
   id: number;
@@ -98,6 +102,7 @@ function normalize(db: Db, input: AccountInput, currentKind?: AccountKind) {
   const payer = getAccount(db, payAccountId);
   if (!payer) throw new Error("Conta de pagamento não encontrada.");
   if (isCard(payer)) throw new Error("A fatura deve ser paga por uma conta, não por outro cartão.");
+  if (isSavings(payer)) throw new Error("A fatura deve ser paga por uma conta do dia a dia, não por uma Caixinha. Resgate o valor antes.");
   // A dívida do cartão nasce dos lançamentos; um saldo inicial aqui só confundiria as faturas.
   return { initial: 0, closingDay, dueDay, payAccountId };
 }
@@ -117,6 +122,10 @@ export function updateAccount(db: Db, id: number, input: AccountInput): void {
   const current = getAccount(db, id);
   if (!current) throw new Error("Conta não encontrada.");
   const n = normalize(db, input, current.kind);
+  if (input.kind === "caixinha") {
+    const pays = db.prepare("SELECT 1 FROM accounts WHERE pay_account_id = ? LIMIT 1").get(id);
+    if (pays) throw new Error("Esta conta paga a fatura de um cartão e não pode virar Caixinha. Troque a conta de pagamento do cartão antes.");
+  }
   db.prepare(
     `UPDATE accounts SET name = ?, kind = ?, initial_balance_cents = ?, closing_day = ?, due_day = ?, pay_account_id = ?,
        favorite = ?
@@ -152,7 +161,15 @@ export function listAccounts(db: Db, opts: { includeArchived?: boolean } = {}): 
   );
 }
 
-/** Saldo total do dinheiro que você tem: cartões ficam de fora (a dívida sai no vencimento da fatura). */
+/**
+ * Saldo total do dinheiro disponível: cartões ficam de fora (a dívida sai no vencimento da fatura)
+ * e Caixinhas também (aparecem à parte, em Guardado).
+ */
 export function totalBalanceCents(accounts: AccountWithBalance[]): number {
-  return accounts.filter((a) => !isCard(a)).reduce((sum, a) => sum + a.balanceCents, 0);
+  return accounts.filter(isSpendable).reduce((sum, a) => sum + a.balanceCents, 0);
+}
+
+/** Guardado: soma dos saldos das Caixinhas. */
+export function savedBalanceCents(accounts: AccountWithBalance[]): number {
+  return accounts.filter(isSavings).reduce((sum, a) => sum + a.balanceCents, 0);
 }

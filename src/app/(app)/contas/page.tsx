@@ -3,7 +3,7 @@ import { toggleAccountArchived, toggleAccountFavorite } from "@/app/actions/acco
 import { Amount } from "@/components/amount";
 import { todayISO, formatDateBR } from "@/lib/dates";
 import { getDb } from "@/lib/db/connection";
-import { ACCOUNT_KIND_LABEL, isCard, listAccounts, totalBalanceCents } from "@/lib/repos/accounts";
+import { ACCOUNT_KIND_LABEL, isCard, isSavings, isSpendable, listAccounts, savedBalanceCents, totalBalanceCents } from "@/lib/repos/accounts";
 import { favoritesFirst } from "@/lib/account-options";
 import { cardInvoices } from "@/lib/repos/cards";
 import { listWithOccurrences } from "@/lib/repos/recurrences";
@@ -30,7 +30,8 @@ export default function AccountsPage() {
   const today = todayISO();
   const all = listAccounts(db, { includeArchived: true });
   const active = all.filter((a) => !a.archived);
-  const accounts = favoritesFirst(active.filter((a) => !isCard(a)));
+  const accounts = favoritesFirst(active.filter(isSpendable));
+  const savings = favoritesFirst(active.filter(isSavings));
   const cards = favoritesFirst(active.filter(isCard));
   const archived = all.filter((a) => a.archived);
 
@@ -51,6 +52,12 @@ export default function AccountsPage() {
         <span className="text-sm text-muted">Saldo total</span>
         <Amount cents={totalBalanceCents(accounts)} className="text-lg font-semibold" />
       </div>
+      {savings.length > 0 && (
+        <div className="card flex items-center justify-between">
+          <span className="text-sm text-muted">Guardado</span>
+          <Amount cents={savedBalanceCents(savings)} className="text-lg font-semibold" />
+        </div>
+      )}
 
       <ul className="space-y-3">
         {accounts.map((a) => (
@@ -65,6 +72,31 @@ export default function AccountsPage() {
           </li>
         ))}
       </ul>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium">Caixinhas</h2>
+          <Link href="/contas/nova?tipo=caixinha" className="btn px-3 py-1.5 text-xs">+ Caixinha</Link>
+        </div>
+        {savings.length === 0 && (
+          <p className="card text-sm text-muted">
+            Dinheiro guardado que continua seu, mas fica fora do saldo total e da projeção.
+          </p>
+        )}
+        <ul className="space-y-3">
+          {savings.map((a) => (
+            <li key={a.id} className="card flex items-center gap-3">
+              <FavoriteStar id={a.id} favorite={a.favorite} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{a.name}</p>
+                <p className="text-xs text-muted">{ACCOUNT_KIND_LABEL[a.kind]}</p>
+              </div>
+              <Amount cents={a.balanceCents} className="font-semibold" />
+              <Link href={`/contas/${a.id}`} className="btn px-3 py-1.5 text-xs">Editar</Link>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">

@@ -75,6 +75,22 @@ describe("saldo de fim de dia", () => {
   });
 });
 
+describe("Caixinha fora do escopo", () => {
+  const aplicacao = tx({ kind: "transferencia", status: "previsto", date: "2026-10-18", amountCents: 30_000, accountId: 1, toAccountId: 2 });
+
+  it("aplicar numa Caixinha fora do escopo reduz a projeção das Contas", () => {
+    const days = run([aplicacao]);
+    expect(at(days, "2026-10-17").endBalanceCents).toBe(100_000);
+    expect(at(days, "2026-10-18").endBalanceCents).toBe(70_000);
+  });
+
+  it("filtrando pela Caixinha, o saldo dela sobe no dia da aplicação", () => {
+    const days = run([aplicacao], "2026-10-10", "2026-10-20", [{ id: 2, initialBalanceCents: 500_000 }]);
+    expect(at(days, "2026-10-17").endBalanceCents).toBe(500_000);
+    expect(at(days, "2026-10-18").endBalanceCents).toBe(530_000);
+  });
+});
+
 describe("previstos e atrasados", () => {
   it("previsto futuro só pesa a partir do seu dia", () => {
     const days = run([tx({ date: "2026-10-18", amountCents: 9_000, status: "previsto" })]);

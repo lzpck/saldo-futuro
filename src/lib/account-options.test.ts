@@ -20,6 +20,14 @@ describe("groupAccountOptions", () => {
     expect(groups.map((g) => names(g.accounts))).toEqual([["Corrente"], ["Visa"], ["Velha"]]);
   });
 
+  it("Caixinhas formam um grupo próprio, entre Contas e Cartões", () => {
+    const groups = groupAccountOptions([
+      card("Visa"), acc("Viagem", { kind: "caixinha" }), acc("Corrente"), acc("Antiga", { kind: "caixinha", archived: true }),
+    ]);
+    expect(groups.map((g) => g.label)).toEqual(["Contas", "Caixinhas", "Cartões", "Arquivadas"]);
+    expect(groups.map((g) => names(g.accounts))).toEqual([["Corrente"], ["Viagem"], ["Visa"], ["Antiga"]]);
+  });
+
   it("omite grupos vazios", () => {
     expect(groupAccountOptions([acc("Corrente")]).map((g) => g.label)).toEqual(["Contas"]);
   });
@@ -65,6 +73,11 @@ describe("defaultAccountId", () => {
   it("ignora arquivadas e devolve undefined sem opções", () => {
     expect(defaultAccountId([acc("Velha", { archived: true })])).toBeUndefined();
     expect(defaultAccountId([])).toBeUndefined();
+  });
+
+  it("sem favorita, prefere uma Conta do dia a dia a uma Caixinha", () => {
+    const corrente = acc("Corrente");
+    expect(defaultAccountId([acc("Cofre", { kind: "caixinha" }), corrente])).toBe(corrente.id);
   });
 
   it("sem conta comum nem favorita, usa o primeiro cartão", () => {

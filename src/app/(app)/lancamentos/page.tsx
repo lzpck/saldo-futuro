@@ -17,7 +17,7 @@ import {
 } from "@/lib/filters";
 import { centsToInput } from "@/lib/money";
 import { dailyBalances, groupByDay, lowestBalance, type DayBalance } from "@/lib/projection";
-import { isCard, listAccounts } from "@/lib/repos/accounts";
+import { isSpendable, listAccounts } from "@/lib/repos/accounts";
 import { listCategories } from "@/lib/repos/categories";
 import { listSchedule } from "@/lib/repos/schedule";
 import type { Transaction } from "@/lib/repos/transactions";
@@ -46,7 +46,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
 
   const allAccounts = listAccounts(db, { includeArchived: true });
   const categories = listCategories(db, { includeArchived: true });
-  const scope = accountId ? allAccounts.filter((a) => a.id === accountId) : allAccounts.filter((a) => !a.archived && !isCard(a));
+  const scope = accountId ? allAccounts.filter((a) => a.id === accountId) : allAccounts.filter((a) => !a.archived && isSpendable(a));
 
   // Busca sem "até": olha um ano à frente (ou só até hoje, sem previstos).
   const searchTo = filters.to ?? (filters.includePlanned ? monthBounds(shiftMonth(today.slice(0, 7), 12)).to : today);

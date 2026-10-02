@@ -5,14 +5,21 @@ App pessoal de finanças, de um único usuário, com lançamentos totalmente man
 ## Linguagem
 
 **Conta**:
-Local onde o dinheiro está, com um saldo inicial informado pelo usuário. Pode ser corrente, carteira, benefício ou cartão.
+Local onde o dinheiro está, com um saldo inicial informado pelo usuário. Pode ser corrente, carteira, benefício, caixinha ou cartão.
 _Evitar_: carteira, banco
 
 **Conta de cartão**:
 Tipo de Conta que representa um cartão de crédito, com dia de fechamento, dia de vencimento e a Conta que paga a fatura. Seus gastos se acumulam em Faturas. Fica fora do Saldo total: o saldo dela é a dívida (negativo) e o dinheiro só sai da Conta de pagamento quando a Fatura é paga. Não tem saldo inicial.
 
+**Caixinha**:
+Tipo de Conta que representa dinheiro guardado e separado do dia a dia (como as caixinhas dos bancos). O dinheiro continua sendo do usuário, mas a Caixinha fica fora do Saldo total e da Projeção de saldo; seu saldo aparece à parte, no total Guardado. Tem saldo inicial. Entrar e sair dinheiro dela é Transferência (aplicar e resgatar); o Resgate nunca é automático, é uma Transferência que o usuário lança, Prevista ou Efetivada. O rendimento é uma Receita lançada na própria Caixinha, e ela aceita Despesa (tarifas). Aplicar numa Caixinha reduz o Saldo total e a Projeção no dia da Transferência, pois o dinheiro deixa de estar disponível. Filtrar a lista pela Caixinha mostra o saldo dela dia a dia, incluindo Resgates Previstos. Uma Conta pode virar Caixinha, e vice-versa, entre corrente, carteira, benefício e caixinha (o cartão continua travado). Uma Caixinha não paga Fatura, e a Conta que paga a Fatura de algum cartão não pode virar Caixinha: para pagar com o dinheiro guardado, o usuário primeiro faz o Resgate.
+_Evitar_: cofrinho, reserva
+
+**Guardado**:
+Soma dos saldos atuais das Caixinhas. É mostrado separado do Saldo total e nunca entra nele, no Resumo e na tela de Contas. Não há total de "patrimônio" que some os dois.
+
 **Conta favorita**:
-Conta (ou Conta de cartão) que o usuário marcou como de uso frequente. Pode haver várias, sem limite. Nos seletores de Conta aparece antes das demais do seu grupo (Contas ou Cartões), em ordem alfabética, e a primeira favorita é a pré-selecionada num novo Lançamento. Uma Conta arquivada deixa de ser favorita.
+Conta (ou Conta de cartão) que o usuário marcou como de uso frequente. Pode haver várias, sem limite. Nos seletores de Conta aparece antes das demais do seu grupo (Contas, Caixinhas ou Cartões), em ordem alfabética, e a primeira favorita é a pré-selecionada num novo Lançamento. Uma Conta arquivada deixa de ser favorita.
 
 **Conta arquivada**:
 Conta que o usuário tirou de uso sem apagar: deixa de ser oferecida para novos Lançamentos, mas mantém o histórico e continua aparecendo onde um Lançamento antigo precisa dela.
