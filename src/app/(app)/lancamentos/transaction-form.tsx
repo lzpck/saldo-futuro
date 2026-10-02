@@ -5,9 +5,10 @@ import { useActionState, useState } from "react";
 import { saveTransaction } from "@/app/actions/transactions";
 import { SeedFields } from "@/components/seed-fields";
 import { shiftMonth } from "@/lib/prediction";
-import { centsToInput } from "@/lib/money";
+import { centsToInput, parseBRL } from "@/lib/money";
+import { benefitWarnings } from "@/lib/benefit";
 import { FREQUENCIES, FREQUENCY_LABEL, type Frequency } from "@/lib/recurrence";
-import { isCard, type Account } from "@/lib/repos/accounts";
+import { isBenefit, isCard, type AccountWithBalance } from "@/lib/repos/accounts";
 import type { Category } from "@/lib/repos/categories";
 import type { Transaction, TransactionKind, TransactionStatus } from "@/lib/repos/transactions";
 import { AccountOptions } from "@/components/account-options";
@@ -36,7 +37,7 @@ export function TransactionForm({
   initialRepeat = "none",
   initialAccountId,
 }: {
-  accounts: Account[];
+  accounts: AccountWithBalance[];
   categories: Category[];
   /** Hoje (AAAA-MM-DD). */
   defaultDate: string;
@@ -59,6 +60,19 @@ export function TransactionForm({
   const [accountId, setAccountId] = useState<number>(
     existing?.accountId ?? initialAccountId ?? defaultAccountId(accounts) ?? 0,
   );
+  const [amountText, setAmountText] = useState(existing ? centsToInput(existing.amountCents) : "");
+  const [categoryId, setCategoryId] = useState<number | null>(existing?.categoryId ?? null);
+  const benefitAccount = accounts.find((a) => a.id === accountId && isBenefit(a));
+  const warnings = benefitAccount
+    ? benefitWarnings({
+        account: benefitAccount,
+        kind,
+        amountCents: amountText.trim() === "" ? null : parseBRL(amountText),
+        categoryId: kind === "despesa" ? categoryId : null,
+        categories,
+        checkBalance: !existing,
+      })
+    : [];
   const onCard = accounts.find((a) => a.id === accountId && isCard(a));
 
   const canRepeat = !existing && !occurrence && kind !== "transferencia";
@@ -111,7 +125,7 @@ export function TransactionForm({
                 name="kind"
                 value={k.value}
                 checked={kind === k.value}
-                onChange={() => setKind(k.value)}
+                onChange={() => { setKind(k.value); setCategoryId(null); }}
                 className="sr-only"
               />
               {k.label}
@@ -127,7 +141,8 @@ export function TransactionForm({
           name="amount"
           inputMode="decimal"
           placeholder="0,00"
-          defaultValue={existing ? centsToInput(existing.amountCents) : ""}
+          value={amountText}
+          onChange={(e) => setAmountText(e.target.value)}
           autoFocus
           required
           className="input text-lg"
@@ -204,7 +219,7 @@ export function TransactionForm({
       ) : (
         <div>
           <label htmlFor="categoryId" className="label">Categoria</label>
-          <select id="categoryId" name="categoryId" defaultValue={existing?.categoryId ?? ""} className="input" key={kind}>
+          <select id="categoryId" name="categoryId" value={categoryId ?? ""} onChange={(e) => setCategoryId(e.target.value === "" ? null : Number(e.target.value))} className="input" key={kind}>
             <option value="">Sem categoria</option>
             {parents.map((p) => (
               <optgroup key={p.id} label={`${p.icon} ${p.name}`}>
@@ -282,6 +297,9 @@ export function TransactionForm({
         </div>
       )}
 
+      {warnings.map((w) => (
+        <p key={w} role="status" className="rounded-xl bg-amber-500/15 px-3.5 py-2.5 text-xs text-amber-400">⚠ {w}</p>
+      ))}
       {state?.error && <p className="error">{state.error}</p>}
       <button type="submit" disabled={pending} className="btn btn-primary w-full">
         {pending

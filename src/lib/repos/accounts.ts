@@ -24,6 +24,8 @@ export type Account = {
   dueDay: number | null;
   /** Só cartão: conta de onde a fatura é paga. */
   payAccountId: number | null;
+  /** Só Benefício: Categorias aceitas (vazio = sem restrição). */
+  acceptedCategoryIds: number[];
 };
 
 export type AccountWithBalance = Account & { balanceCents: number };
@@ -36,12 +38,15 @@ export type AccountInput = {
   dueDay?: number | null;
   payAccountId?: number | null;
   favorite?: boolean;
+  /** Só Benefício: Categorias aceitas. */
+  acceptedCategoryIds?: number[];
 };
 
 export const isCard = (a: Pick<Account, "kind">) => a.kind === "cartao";
 export const isSavings = (a: Pick<Account, "kind">) => a.kind === "caixinha";
-/** Conta do dia a dia: nem cartão nem Caixinha. Só estas compõem o Saldo total e a Projeção padrão. */
-export const isSpendable = (a: Pick<Account, "kind">) => !isCard(a) && !isSavings(a);
+export const isBenefit = (a: Pick<Account, "kind">) => a.kind === "beneficio";
+/** Conta do dia a dia: nem cartão, nem Caixinha, nem Benefício. Só estas compõem o Saldo total e a Projeção padrão. */
+export const isSpendable = (a: Pick<Account, "kind">) => !isCard(a) && !isSavings(a) && !isBenefit(a);
 
 type Row = {
   id: number;
@@ -54,6 +59,7 @@ type Row = {
   due_day: number | null;
   pay_account_id: number | null;
   balance_cents: number;
+  accepted_ids: string | null;
 };
 
 // Saldo atual = saldo inicial + lançamentos Efetivados (CONTEXT.md).
@@ -67,7 +73,8 @@ const BALANCE_SQL = `
     END)
     FROM transactions t
     WHERE t.status = 'efetivado' AND (t.account_id = a.id OR t.to_account_id = a.id)
-  ), 0) AS balance_cents
+  ), 0) AS balance_cents,
+  (SELECT group_concat(ac.category_id) FROM account_categories ac WHERE ac.account_id = a.id) AS accepted_ids
   FROM accounts a
 `;
 
@@ -83,6 +90,7 @@ function toAccount(r: Row): AccountWithBalance {
     dueDay: r.due_day,
     payAccountId: r.pay_account_id,
     balanceCents: r.balance_cents,
+    acceptedCategoryIds: r.accepted_ids ? r.accepted_ids.split(",").map(Number) : [],
   };
 }
 
@@ -103,6 +111,7 @@ function normalize(db: Db, input: AccountInput, currentKind?: AccountKind) {
   if (!payer) throw new Error("Conta de pagamento não encontrada.");
   if (isCard(payer)) throw new Error("A fatura deve ser paga por uma conta, não por outro cartão.");
   if (isSavings(payer)) throw new Error("A fatura deve ser paga por uma conta do dia a dia, não por uma Caixinha. Resgate o valor antes.");
+  if (isBenefit(payer)) throw new Error("A fatura deve ser paga por uma conta do dia a dia, não por um Benefício. Transfira o valor antes.");
   // A dívida do cartão nasce dos lançamentos; um saldo inicial aqui só confundiria as faturas.
   return { initial: 0, closingDay, dueDay, payAccountId };
 }
@@ -115,16 +124,29 @@ export function createAccount(db: Db, input: AccountInput): number {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(input.name, input.kind, n.initial, n.closingDay, n.dueDay, n.payAccountId, input.favorite ? 1 : 0);
+  saveAcceptedCategories(db, Number(lastInsertRowid), input);
   return Number(lastInsertRowid);
+}
+
+// Só o Benefício restringe Categorias; trocar de tipo limpa a lista.
+function saveAcceptedCategories(db: Db, id: number, input: AccountInput) {
+  db.prepare("DELETE FROM account_categories WHERE account_id = ?").run(id);
+  if (input.kind !== "beneficio") return;
+  // Ids que não são Categorias existentes são ignorados, em vez de estourar a chave estrangeira.
+  const insert = db.prepare(
+    "INSERT OR IGNORE INTO account_categories (account_id, category_id) SELECT ?, id FROM categories WHERE id = ?",
+  );
+  for (const categoryId of input.acceptedCategoryIds ?? []) insert.run(id, categoryId);
 }
 
 export function updateAccount(db: Db, id: number, input: AccountInput): void {
   const current = getAccount(db, id);
   if (!current) throw new Error("Conta não encontrada.");
   const n = normalize(db, input, current.kind);
-  if (input.kind === "caixinha") {
+  if (input.kind === "caixinha" || input.kind === "beneficio") {
     const pays = db.prepare("SELECT 1 FROM accounts WHERE pay_account_id = ? LIMIT 1").get(id);
-    if (pays) throw new Error("Esta conta paga a fatura de um cartão e não pode virar Caixinha. Troque a conta de pagamento do cartão antes.");
+    const label = input.kind === "caixinha" ? "Caixinha" : "Benefício";
+    if (pays) throw new Error(`Esta conta paga a fatura de um cartão e não pode virar ${label}. Troque a conta de pagamento do cartão antes.`);
   }
   db.prepare(
     `UPDATE accounts SET name = ?, kind = ?, initial_balance_cents = ?, closing_day = ?, due_day = ?, pay_account_id = ?,
@@ -135,6 +157,7 @@ export function updateAccount(db: Db, id: number, input: AccountInput): void {
     input.favorite && !current.archived ? 1 : 0, // conta arquivada nunca é favorita
     id,
   );
+  saveAcceptedCategories(db, id, input);
 }
 
 export function setAccountArchived(db: Db, id: number, archived: boolean): void {
@@ -163,7 +186,7 @@ export function listAccounts(db: Db, opts: { includeArchived?: boolean } = {}): 
 
 /**
  * Saldo total do dinheiro disponível: cartões ficam de fora (a dívida sai no vencimento da fatura)
- * e Caixinhas também (aparecem à parte, em Guardado).
+ * e Caixinhas e Benefícios também (aparecem à parte, em Guardado e Benefício).
  */
 export function totalBalanceCents(accounts: AccountWithBalance[]): number {
   return accounts.filter(isSpendable).reduce((sum, a) => sum + a.balanceCents, 0);
@@ -172,4 +195,9 @@ export function totalBalanceCents(accounts: AccountWithBalance[]): number {
 /** Guardado: soma dos saldos das Caixinhas. */
 export function savedBalanceCents(accounts: AccountWithBalance[]): number {
   return accounts.filter(isSavings).reduce((sum, a) => sum + a.balanceCents, 0);
+}
+
+/** Benefício: soma dos saldos das Contas Benefício. */
+export function benefitBalanceCents(accounts: AccountWithBalance[]): number {
+  return accounts.filter(isBenefit).reduce((sum, a) => sum + a.balanceCents, 0);
 }

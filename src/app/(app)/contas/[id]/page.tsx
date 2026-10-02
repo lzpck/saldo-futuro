@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { toggleAccountArchived } from "@/app/actions/accounts";
 import { getDb } from "@/lib/db/connection";
-import { getAccount, isCard, isSavings, isSpendable, listAccounts } from "@/lib/repos/accounts";
+import { listCategories } from "@/lib/repos/categories";
+import { getAccount, isBenefit, isCard, isSavings, isSpendable, listAccounts } from "@/lib/repos/accounts";
 import { favoritesFirst } from "@/lib/account-options";
 import { AccountForm } from "../account-form";
 
@@ -11,12 +12,12 @@ export default async function EditAccountPage({ params }: PageProps<"/contas/[id
   const account = getAccount(db, Number(id));
   if (!account) notFound();
   const payers = favoritesFirst(listAccounts(db).filter(isSpendable));
-  const noun = isCard(account) ? "cartão" : isSavings(account) ? "caixinha" : "conta";
+  const noun = isCard(account) ? "cartão" : isSavings(account) ? "caixinha" : isBenefit(account) ? "benefício" : "conta";
 
   return (
     <div className="mx-auto max-w-lg space-y-5">
       <h1 className="text-2xl font-semibold">Editar {noun}</h1>
-      <AccountForm existing={account} payers={payers} />
+      <AccountForm existing={account} payers={payers} categories={listCategories(db).filter((c) => c.kind === "despesa" && c.parentId === null)} />
       {!account.archived && (
         <form action={toggleAccountArchived}>
           <input type="hidden" name="id" value={account.id} />

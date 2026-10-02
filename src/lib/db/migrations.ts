@@ -169,6 +169,16 @@ const MIGRATIONS: Migration[] = [
   (db) => {
     db.exec(`ALTER TABLE accounts ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0;`);
   },
+  // Benefício: Categorias que a Conta aceita (vazio = sem restrição).
+  (db) => {
+    db.exec(`
+      CREATE TABLE account_categories (
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        category_id INTEGER NOT NULL REFERENCES categories(id),
+        PRIMARY KEY (account_id, category_id)
+      );
+    `);
+  },
 ];
 
 export function migrate(db: Database.Database): void {

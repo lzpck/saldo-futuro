@@ -1,4 +1,4 @@
-import { isCard, isSavings, isSpendable, type Account } from "./repos/accounts";
+import { isBenefit, isCard, isSavings, isSpendable, type Account } from "./repos/accounts";
 
 export type AccountGroup<T extends Account> = { label: string; accounts: T[] };
 
@@ -9,10 +9,11 @@ export function favoritesFirst<T extends Account>(accounts: T[]): T[] {
   );
 }
 
-/** Grupos do seletor de Conta: Contas, Caixinhas, Cartões e Arquivadas (grupos vazios ficam de fora). */
+/** Grupos do seletor de Conta: Contas, Benefícios, Caixinhas, Cartões e Arquivadas (grupos vazios ficam de fora). */
 export function groupAccountOptions<T extends Account>(accounts: T[]): AccountGroup<T>[] {
   const groups: AccountGroup<T>[] = [
     { label: "Contas", accounts: favoritesFirst(accounts.filter((a) => !a.archived && isSpendable(a))) },
+    { label: "Benefícios", accounts: favoritesFirst(accounts.filter((a) => !a.archived && isBenefit(a))) },
     { label: "Caixinhas", accounts: favoritesFirst(accounts.filter((a) => !a.archived && isSavings(a))) },
     { label: "Cartões", accounts: favoritesFirst(accounts.filter((a) => !a.archived && isCard(a))) },
     { label: "Arquivadas", accounts: favoritesFirst(accounts.filter((a) => a.archived)) },
@@ -20,7 +21,7 @@ export function groupAccountOptions<T extends Account>(accounts: T[]): AccountGr
   return groups.filter((g) => g.accounts.length > 0);
 }
 
-/** Conta pré-selecionada num novo Lançamento: a primeira favorita na ordem exibida, senão a primeira do dia a dia (nem Caixinha nem cartão). */
+/** Conta pré-selecionada num novo Lançamento: a primeira favorita na ordem exibida, senão a primeira do dia a dia (nem Caixinha, Benefício nem cartão). */
 export function defaultAccountId(accounts: Account[]): number | undefined {
   const shown = groupAccountOptions(accounts).flatMap((g) => g.accounts).filter((a) => !a.archived);
   return (shown.find((a) => a.favorite) ?? shown.find(isSpendable) ?? shown[0])?.id;

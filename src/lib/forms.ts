@@ -216,7 +216,8 @@ export function parseAccountForm(fd: FormData) {
   }
 
   if (base.data.kind !== "cartao") {
-    return { ok: true, data: { ...base.data, initialBalanceCents, favorite } } as const;
+    const acceptedCategoryIds = fd.getAll("acceptedCategoryIds").map((v) => Number(v)).filter((n) => Number.isInteger(n) && n > 0);
+    return { ok: true, data: { ...base.data, initialBalanceCents, favorite, acceptedCategoryIds } } as const;
   }
 
   const closingDay = optionalId(fd.get("closingDay"));

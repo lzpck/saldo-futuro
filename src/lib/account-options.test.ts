@@ -5,7 +5,7 @@ import { defaultAccountId, favoritesFirst, groupAccountOptions } from "./account
 let n = 0;
 const acc = (name: string, over: Partial<Account> = {}): Account => ({
   id: ++n, name, kind: "corrente", initialBalanceCents: 0, archived: false, favorite: false,
-  closingDay: null, dueDay: null, payAccountId: null, ...over,
+  closingDay: null, dueDay: null, payAccountId: null, acceptedCategoryIds: [], ...over,
 });
 const card = (name: string, over: Partial<Account> = {}) =>
   acc(name, { kind: "cartao", closingDay: 5, dueDay: 12, payAccountId: 1, ...over });

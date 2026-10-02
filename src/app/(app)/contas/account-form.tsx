@@ -4,17 +4,21 @@ import { useActionState, useState } from "react";
 import { saveAccount } from "@/app/actions/accounts";
 import { centsToInput } from "@/lib/money";
 import { accountLabel } from "@/lib/account-options";
+import type { Category } from "@/lib/repos/categories";
 import { ACCOUNT_KINDS, ACCOUNT_KIND_LABEL, type Account, type AccountKind } from "@/lib/repos/accounts";
 
 export function AccountForm({
   existing,
   payers,
   initialKind = "corrente",
+  categories = [],
 }: {
   existing?: Account;
   /** Contas (não-cartão) que podem pagar a fatura de um cartão. */
   payers: Account[];
   initialKind?: AccountKind;
+  /** Categorias de despesa que uma Conta Benefício pode aceitar. */
+  categories?: Category[];
 }) {
   const [state, action, pending] = useActionState(saveAccount, undefined);
   const [kind, setKind] = useState<AccountKind>(existing?.kind ?? initialKind);
@@ -70,6 +74,7 @@ export function AccountForm({
           </p>
         </>
       ) : (
+        <>
         <div>
           <label htmlFor="initialBalance" className="label">Saldo inicial</label>
           <input
@@ -84,6 +89,23 @@ export function AccountForm({
             Quanto havia na conta antes do primeiro lançamento. O saldo atual é este valor mais os lançamentos efetivados.
           </p>
         </div>
+        {kind === "beneficio" && (
+          <fieldset>
+            <legend className="label">Categorias aceitas</legend>
+            <div className="grid grid-cols-2 gap-1.5">
+              {categories.map((c) => (
+                <label key={c.id} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="acceptedCategoryIds" value={c.id} defaultChecked={existing?.acceptedCategoryIds.includes(c.id)} />
+                  {c.icon} {c.name}
+                </label>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-muted">
+              Este dinheiro fica fora do saldo total e da projeção. Despesa de outra categoria só gera um aviso. Sem categorias marcadas, não há restrição.
+            </p>
+          </fieldset>
+        )}
+        </>
       )}
 
       {state?.error && <p className="error">{state.error}</p>}

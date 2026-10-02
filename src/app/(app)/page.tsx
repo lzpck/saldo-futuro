@@ -7,7 +7,7 @@ import { TransactionList, TransactionRow } from "@/components/transaction-list";
 import { getDb } from "@/lib/db/connection";
 import { formatDateBR, formatDayHeader, monthBounds, todayISO } from "@/lib/dates";
 import { addDays, dailyBalances, lowestBalance, openItems } from "@/lib/projection";
-import { ACCOUNT_KIND_LABEL, isCard, isSavings, isSpendable, listAccounts, savedBalanceCents, totalBalanceCents } from "@/lib/repos/accounts";
+import { ACCOUNT_KIND_LABEL, benefitBalanceCents, isBenefit, isCard, isSavings, isSpendable, listAccounts, savedBalanceCents, totalBalanceCents } from "@/lib/repos/accounts";
 import { monthBudgets } from "@/lib/repos/budgets";
 import { cardInvoices } from "@/lib/repos/cards";
 import { listWithOccurrences } from "@/lib/repos/recurrences";
@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const everything = listAccounts(db);
   const accounts = everything.filter(isSpendable);
   const savings = everything.filter(isSavings);
+  const benefits = everything.filter(isBenefit);
   const cards = everything.filter(isCard);
   const total = totalBalanceCents(accounts);
   const saved = savedBalanceCents(savings);
@@ -95,6 +96,11 @@ export default function DashboardPage() {
         <p className="mt-1 text-4xl font-semibold tracking-tight">
           <Amount cents={total} />
         </p>
+        {benefits.length > 0 && (
+          <p className="mt-1 text-sm text-muted">
+            Benefício: <Amount cents={benefitBalanceCents(benefits)} className="font-medium text-fg" />
+          </p>
+        )}
         {savings.length > 0 && (
           <p className="mt-1 text-sm text-muted">
             Guardado: <Amount cents={saved} className="font-medium text-fg" />
@@ -215,7 +221,7 @@ export default function DashboardPage() {
       <section>
         <h2 className="mb-3 text-sm font-medium text-muted">Contas</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          {[...accounts, ...savings].map((a) => (
+          {[...accounts, ...benefits, ...savings].map((a) => (
             <Link key={a.id} href={`/lancamentos?conta=${a.id}`} className="card transition hover:border-muted/50">
               <p className="text-xs text-muted">{ACCOUNT_KIND_LABEL[a.kind]}</p>
               <p className="mt-0.5 font-medium">{a.name}</p>
