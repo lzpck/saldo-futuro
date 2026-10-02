@@ -52,6 +52,8 @@ Lançamento que move dinheiro entre duas Contas (inclui pagamento de Fatura). N�
 **Previsto**:
 Estado de um Lançamento que ainda não aconteceu de fato. Entra na Projeção de saldo.
 
+Ao criar uma Despesa ou Receita numa Conta de cartão, o Lançamento já começa Previsto, qualquer que seja a data: ele entra na Fatura que o usuário vai pagar. A escolha manual do estado sempre vence a sugestão, e editar um Lançamento existente não muda o estado sozinho.
+
 **Efetivado**:
 Estado de um Lançamento que aconteceu, com o valor real. Só os Efetivados compõem o Saldo atual.
 _Evitar_: pago, confirmado

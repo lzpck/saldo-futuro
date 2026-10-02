@@ -52,7 +52,7 @@ export function TransactionForm({
   const returnTo = useSearchParams().get(RETURN_PARAM);
   const [kind, setKind] = useState<TransactionKind>(existing?.kind ?? "despesa");
   const [date, setDate] = useState(existing?.date ?? defaultDate);
-  const [status, setStatus] = useState<TransactionStatus>(existing?.status ?? "efetivado");
+  const [dateStatus, setStatus] = useState<TransactionStatus>(existing?.status ?? "efetivado");
   const [statusTouched, setStatusTouched] = useState(false);
   const [repeat, setRepeat] = useState<Repeat>(initialRepeat);
   const [isVariable, setIsVariable] = useState(false);
@@ -74,6 +74,9 @@ export function TransactionForm({
       })
     : [];
   const onCard = accounts.find((a) => a.id === accountId && isCard(a));
+  // Compra nova no cartão entra na fatura que a pessoa vai pagar: começa Prevista, até ela escolher à mão.
+  const cardSuggestsPlanned = !existing && !occurrence && kind !== "transferencia" && !!onCard;
+  const status: TransactionStatus = cardSuggestsPlanned && !statusTouched ? "previsto" : dateStatus;
 
   const canRepeat = !existing && !occurrence && kind !== "transferencia";
   const activeRepeat: Repeat = canRepeat && (repeat !== "parcelado" || kind === "despesa") ? repeat : "none";
