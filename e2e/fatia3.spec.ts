@@ -24,7 +24,7 @@ async function entrar(page: Page) {
   await page.waitForURL((url) => url.pathname === "/");
 }
 
-const saldoTotal = (page: Page) => page.getByText("Saldo total").locator("xpath=following-sibling::p[1]");
+const saldoTotal = (page: Page) => page.getByText("Saldo total", { exact: true }).locator("xpath=following-sibling::p[1]");
 const emAberto = (page: Page) => page.getByRole("region", { name: "Contas em aberto" });
 const row = (page: Page, text: string) => page.locator("li", { hasText: text });
 const daySection = (page: Page, text: string) =>

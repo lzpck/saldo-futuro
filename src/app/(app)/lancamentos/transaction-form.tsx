@@ -5,7 +5,7 @@ import { useActionState, useState } from "react";
 import { saveTransaction } from "@/app/actions/transactions";
 import { SeedFields } from "@/components/seed-fields";
 import { shiftMonth } from "@/lib/prediction";
-import { centsToInput, parseBRL } from "@/lib/money";
+import { formatMoneyField, parseBRL } from "@/lib/money";
 import { benefitWarnings } from "@/lib/benefit";
 import { FREQUENCIES, FREQUENCY_LABEL, type Frequency } from "@/lib/recurrence";
 import { isBenefit, isCard, type AccountWithBalance } from "@/lib/repos/accounts";
@@ -14,6 +14,7 @@ import type { Transaction, TransactionKind, TransactionStatus } from "@/lib/repo
 import { AccountOptions } from "@/components/account-options";
 import { defaultAccountId } from "@/lib/account-options";
 import { RETURN_PARAM } from "@/lib/return-to";
+import { MoneyInput } from "@/components/money-input";
 
 const KINDS: { value: TransactionKind; label: string }[] = [
   { value: "despesa", label: "Despesa" },
@@ -60,7 +61,7 @@ export function TransactionForm({
   const [accountId, setAccountId] = useState<number>(
     existing?.accountId ?? initialAccountId ?? defaultAccountId(accounts) ?? 0,
   );
-  const [amountText, setAmountText] = useState(existing ? centsToInput(existing.amountCents) : "");
+  const [amountText, setAmountText] = useState(existing ? formatMoneyField(existing.amountCents) : "");
   const [categoryId, setCategoryId] = useState<number | null>(existing?.categoryId ?? null);
   const benefitAccount = accounts.find((a) => a.id === accountId && isBenefit(a));
   const warnings = benefitAccount
@@ -139,13 +140,12 @@ export function TransactionForm({
 
       <div>
         <label htmlFor="amount" className="label">{amountLabel}</label>
-        <input
+        <MoneyInput
           id="amount"
           name="amount"
-          inputMode="decimal"
           placeholder="0,00"
           value={amountText}
-          onChange={(e) => setAmountText(e.target.value)}
+          onValueChange={setAmountText}
           autoFocus
           required
           className="input text-lg"

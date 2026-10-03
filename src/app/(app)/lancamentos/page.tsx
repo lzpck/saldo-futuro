@@ -22,6 +22,7 @@ import { listCategories } from "@/lib/repos/categories";
 import { listSchedule } from "@/lib/repos/schedule";
 import type { Transaction } from "@/lib/repos/transactions";
 import { AccountOptions } from "@/components/account-options";
+import { MoneyInput } from "@/components/money-input";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -175,17 +176,15 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
               </option>
             ))}
           </select>
-          <input
+          <MoneyInput
             name="min"
-            inputMode="decimal"
             defaultValue={filters.minCents !== null ? centsToInput(filters.minCents) : ""}
             placeholder="Valor mínimo"
             className="input"
             aria-label="Valor mínimo"
           />
-          <input
+          <MoneyInput
             name="max"
-            inputMode="decimal"
             defaultValue={filters.maxCents !== null ? centsToInput(filters.maxCents) : ""}
             placeholder="Valor máximo"
             className="input"

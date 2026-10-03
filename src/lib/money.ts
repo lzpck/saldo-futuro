@@ -27,3 +27,37 @@ export function centsToInput(cents: number): string {
   const abs = Math.abs(cents);
   return `${cents < 0 ? "-" : ""}${Math.floor(abs / 100)},${String(abs % 100).padStart(2, "0")}`;
 }
+
+// --- Máscara de campo de dinheiro (digitação em centavos) ---
+
+const MAX_DIGITS = 12;
+
+export type MoneyMaskOptions = { allowNegative?: boolean };
+
+/** Centavos como texto de campo mascarado ("1.234,56"), com sinal e separador de milhar. */
+export function formatMoneyField(cents: number): string {
+  const abs = Math.abs(cents);
+  const reais = String(Math.floor(abs / 100)).replace(/\B(?=(\d{3})+$)/g, ".");
+  return `${cents < 0 ? "-" : ""}${reais},${String(abs % 100).padStart(2, "0")}`;
+}
+
+/**
+ * Texto cru do campo (após uma tecla) → texto mascarado. Só os dígitos contam: o valor
+ * "sobe" da direita (1 → 0,01; 12 → 0,12). Sem dígitos significativos o campo fica vazio.
+ * Com `allowNegative`, cada "-" digitado alterna o sinal.
+ */
+export function maskMoney(raw: string, { allowNegative = false }: MoneyMaskOptions = {}): string {
+  const digits = raw.replace(/\D/g, "").slice(0, MAX_DIGITS).replace(/^0+/, "");
+  const negative = allowNegative && (raw.match(/-/g)?.length ?? 0) % 2 === 1;
+  if (!digits) return negative ? "-" : "";
+  return formatMoneyField(negative ? -Number(digits) : Number(digits));
+}
+
+/** Texto colado: valor em pt-BR válido é respeitado; senão, só os dígitos entram na máscara. */
+export function pasteMoney(text: string, options: MoneyMaskOptions = {}): string {
+  const cents = parseBRL(text);
+  if (cents !== null && Math.abs(cents) < 10 ** MAX_DIGITS && (cents >= 0 || options.allowNegative)) {
+    return formatMoneyField(cents);
+  }
+  return maskMoney(text.replace(/-/g, ""), options);
+}

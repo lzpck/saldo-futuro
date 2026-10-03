@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { payInvoiceAction } from "@/app/actions/cards";
 import { accountLabel } from "@/lib/account-options";
 import type { Account } from "@/lib/repos/accounts";
+import { MoneyInput } from "@/components/money-input";
 
 export function PayInvoiceForm({
   cardId,
@@ -31,7 +32,7 @@ export function PayInvoiceForm({
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div>
           <label htmlFor={`amount-${id}`} className="label">Valor pago</label>
-          <input id={`amount-${id}`} name="amount" inputMode="decimal" defaultValue={remainingLabel} className="input" />
+          <MoneyInput id={`amount-${id}`} name="amount" defaultValue={remainingLabel} className="input" />
         </div>
         <div>
           <label htmlFor={`date-${id}`} className="label">Data</label>

@@ -6,6 +6,7 @@ import { centsToInput } from "@/lib/money";
 import { accountLabel } from "@/lib/account-options";
 import type { Category } from "@/lib/repos/categories";
 import { ACCOUNT_KINDS, ACCOUNT_KIND_LABEL, type Account, type AccountKind } from "@/lib/repos/accounts";
+import { MoneyInput } from "@/components/money-input";
 
 export function AccountForm({
   existing,
@@ -77,10 +78,10 @@ export function AccountForm({
         <>
         <div>
           <label htmlFor="initialBalance" className="label">Saldo inicial</label>
-          <input
+          <MoneyInput
             id="initialBalance"
             name="initialBalance"
-            inputMode="decimal"
+            allowNegative
             placeholder="0,00"
             defaultValue={existing ? centsToInput(existing.initialBalanceCents) : ""}
             className="input"

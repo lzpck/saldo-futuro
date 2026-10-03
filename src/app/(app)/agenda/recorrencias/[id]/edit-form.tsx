@@ -8,6 +8,7 @@ import type { Account } from "@/lib/repos/accounts";
 import type { Category } from "@/lib/repos/categories";
 import type { Recurrence } from "@/lib/repos/recurrences";
 import { AccountOptions } from "@/components/account-options";
+import { MoneyInput } from "@/components/money-input";
 
 export function RecurrenceEditForm({
   rule,
@@ -46,7 +47,7 @@ export function RecurrenceEditForm({
       </label>
       <div>
         <label htmlFor="amount" className="label">{rule.isVariable ? "Valor estimado (usado até haver histórico)" : "Valor"}</label>
-        <input id="amount" name="amount" inputMode="decimal" defaultValue={centsToInput(rule.amountCents)} required className="input text-lg" />
+        <MoneyInput id="amount" name="amount" defaultValue={centsToInput(rule.amountCents)} required className="input text-lg" />
       </div>
       <div>
         <label htmlFor="description" className="label">Descrição</label>

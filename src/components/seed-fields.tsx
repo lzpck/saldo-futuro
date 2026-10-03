@@ -1,5 +1,6 @@
 import { centsToInput } from "@/lib/money";
 import type { HistorySeedEntry } from "@/lib/repos/recurrences";
+import { MoneyInput } from "@/components/money-input";
 
 /** Pares mês/valor do histórico inicial de uma Recorrência variável (campos seedMonthN/seedAmountN). */
 export function SeedFields({
@@ -25,9 +26,8 @@ export function SeedFields({
             aria-label={`Mês do histórico ${i + 1}`}
             className="input"
           />
-          <input
+          <MoneyInput
             name={`seedAmount${i}`}
-            inputMode="decimal"
             placeholder="0,00"
             defaultValue={entry ? centsToInput(entry.amountCents) : ""}
             aria-label={`Valor do histórico ${i + 1}`}

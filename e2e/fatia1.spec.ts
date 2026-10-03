@@ -34,7 +34,7 @@ test("criar conta → lançar receita e despesa → saldo muda", async ({ page }
   await page.getByLabel("Nome").fill("Nubank");
   await page.getByLabel("Saldo inicial").fill("1.000,00");
   await page.getByRole("button", { name: "Salvar conta" }).click();
-  await expect(page.getByText("Saldo total")).toBeVisible();
+  await expect(page.getByText("Saldo total", { exact: true })).toBeVisible();
   await expect(page.getByText("R$ 1.000,00").first()).toBeVisible();
 
   await page.goto("/lancamentos/novo");
@@ -75,7 +75,7 @@ test("sair encerra a sessão e senha errada é recusada", async ({ page }) => {
 
   await page.getByLabel("Senha").fill(SENHA);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByText("Saldo total").first()).toBeVisible();
+  await expect(page.getByText("Saldo total", { exact: true }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "Sair" }).click();
   await expect(page).toHaveURL(/\/login$/);

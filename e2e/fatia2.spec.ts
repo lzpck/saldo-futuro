@@ -23,7 +23,7 @@ async function entrar(page: Page) {
   await page.waitForURL((url) => url.pathname === "/");
 }
 
-const saldoTotal = (page: Page) => page.getByText("Saldo total").locator("xpath=following-sibling::p[1]");
+const saldoTotal = (page: Page) => page.getByText("Saldo total", { exact: true }).locator("xpath=following-sibling::p[1]");
 
 test("data futura sugere Previsto, e o usuário pode trocar", async ({ page }) => {
   await entrar(page);

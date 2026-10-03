@@ -24,7 +24,7 @@ async function entrar(page: Page) {
   await page.waitForURL((url) => url.pathname === "/");
 }
 
-const saldoTotal = (page: Page) => page.getByText("Saldo total").locator("xpath=following-sibling::p[1]");
+const saldoTotal = (page: Page) => page.getByText("Saldo total", { exact: true }).locator("xpath=following-sibling::p[1]");
 async function total(page: Page): Promise<number> {
   await page.goto("/");
   return parseBRL((await saldoTotal(page).innerText()).replace(/\s/g, " "))!;

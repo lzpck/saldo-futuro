@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { saveBudget } from "@/app/actions/budgets";
 import { centsToInput } from "@/lib/money";
+import { MoneyInput } from "@/components/money-input";
 
 export function LimitForm({
   categoryId,
@@ -26,14 +27,14 @@ export function LimitForm({
         <label htmlFor={id} className="sr-only">
           Limite de {name}
         </label>
-        <input
+        <MoneyInput
           id={id}
           name="limit"
-          inputMode="decimal"
+          wrapperClassName="w-32"
           defaultValue={limitCents ? centsToInput(limitCents) : ""}
           key={limitCents ?? "sem"}
           placeholder="Sem limite"
-          className="input w-32 py-1.5 text-right"
+          className="input py-1.5 text-right"
         />
         <button type="submit" disabled={pending} className="btn px-3 py-1.5 text-xs">
           {pending ? "Salvando…" : "Salvar"}
