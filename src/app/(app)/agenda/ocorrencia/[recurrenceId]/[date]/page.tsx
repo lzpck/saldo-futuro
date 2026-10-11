@@ -40,6 +40,7 @@ export default async function OccurrencePage({
     description: rule.description,
     accountId: rule.accountId,
     accountName: rule.accountName,
+    accountKind: rule.accountKind,
     toAccountId: null,
     toAccountName: null,
     categoryId: rule.categoryId,

@@ -284,6 +284,52 @@ export function parseRecurrenceEditForm(fd: FormData) {
   } as const;
 }
 
+/**
+ * Edição de uma compra parcelada. Os campos ocultos `initialAmountCents` e `initialDate` dizem o que o
+ * formulário mostrava: valor e data só são reaplicados às parcelas previstas se a pessoa os mudou
+ * (para não sobrescrever ajustes feitos parcela a parcela sem necessidade).
+ */
+export function parsePurchaseEditForm(fd: FormData) {
+  const schema = z.object({
+    purchaseId: z.number().int().positive(),
+    description: descriptionSchema,
+    accountId: accountIdSchema,
+    categoryId: optionalIdSchema,
+    date: isoDateSchema("Data inválida."),
+  });
+  const base = schema.safeParse({
+    purchaseId: optionalId(fd.get("purchaseId")),
+    description: text(fd.get("description")),
+    accountId: optionalId(fd.get("accountId")),
+    categoryId: optionalId(fd.get("categoryId")),
+    date: text(fd.get("date")),
+  });
+  if (!base.success) return { ok: false, error: base.error.issues[0].message } as const;
+
+  const installments = Number(text(fd.get("installments")));
+  if (!Number.isInteger(installments) || installments < 2 || installments > MAX_INSTALLMENTS) {
+    return { ok: false, error: `Informe de 2 a ${MAX_INSTALLMENTS} parcelas.` } as const;
+  }
+  const amountCents = parseAmount(fd);
+  if (amountCents === null) return { ok: false, error: AMOUNT_ERROR } as const;
+
+  const mode = text(fd.get("amountMode")) === "total" ? "total" : "parcela";
+  const { date, ...rest } = base.data;
+  const dateChanged = date !== text(fd.get("initialDate"));
+  const valueChanged = mode === "total" || String(amountCents) !== text(fd.get("initialAmountCents"));
+
+  return {
+    ok: true,
+    data: {
+      ...rest,
+      installments,
+      firstDate: dateChanged ? date : undefined,
+      valueCents: valueChanged ? amountCents : undefined,
+      mode,
+    },
+  } as const;
+}
+
 /** Limite de orçamento de uma categoria a partir de um mês; vazio ou 0 remove o limite. */
 export function parseBudgetForm(fd: FormData) {
   const month = text(fd.get("month"));

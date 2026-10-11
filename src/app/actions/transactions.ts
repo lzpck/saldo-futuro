@@ -15,8 +15,9 @@ import {
   saveOccurrence,
   skipOccurrence,
 } from "@/lib/repos/recurrences";
+import { settlePaidInvoices } from "@/lib/repos/cards";
 import { payInvoiceFromSchedule } from "@/lib/repos/schedule";
-import { createTransaction, markEffectuated, updateTransaction } from "@/lib/repos/transactions";
+import { createTransaction, getTransaction, markEffectuated, updateTransaction } from "@/lib/repos/transactions";
 import { afterSaveUrl } from "@/lib/return-to";
 
 export async function saveTransaction(_: FormState, fd: FormData): Promise<FormState> {
@@ -69,6 +70,9 @@ export async function saveTransaction(_: FormState, fd: FormData): Promise<FormS
     } else {
       createTransaction(db, data);
     }
+    if (data.kind === "transferencia" && (data.status ?? "efetivado") === "efetivado" && data.toAccountId) {
+      settlePaidInvoices(db, data.toAccountId, todayISO());
+    }
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Não foi possível salvar." };
   }
@@ -108,7 +112,11 @@ export async function effectuateTransaction(fd: FormData): Promise<void> {
     const closingDate = dateField(fd, "closingDate");
     payInvoiceFromSchedule(db, { cardId, closingDate, today: todayISO() });
   } else if (id > 0) {
+    const tx = getTransaction(db, id);
     markEffectuated(db, id, todayISO());
+    if (tx?.kind === "transferencia" && tx.toAccountId) {
+      settlePaidInvoices(db, tx.toAccountId, todayISO());
+    }
   } else {
     effectuateOccurrence(db, idField(fd, "recurrenceId"), dateField(fd, "occurrenceDate"), todayISO());
   }

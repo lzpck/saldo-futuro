@@ -28,7 +28,7 @@ async function entrar(page: Page) {
   await page.waitForURL((url) => url.pathname === "/");
 }
 
-const saldoTotal = (page: Page) => page.getByText("Saldo total", { exact: true }).locator("xpath=following-sibling::p[1]");
+const saldoTotal = (page: Page) => page.getByTestId("saldo-total");
 async function total(page: Page): Promise<number> {
   await page.goto("/");
   return parseBRL((await saldoTotal(page).innerText()).replace(/\s/g, " "))!;
@@ -67,8 +67,8 @@ test("criar luz variável com 3 meses de histórico: a ocorrência mostra o valo
 test("a estimativa entra na projeção e aparece na agenda e na página da recorrência", async ({ page }) => {
   await entrar(page);
   await page.goto("/agenda");
-  const card = page.getByRole("link", { name: /Luz t05/ });
-  await expect(card).toContainText("Variável");
+  const card = page.getByRole("link", { name: /Luz t05/ }).last();
+  await expect(card).toContainText("Valor estimado");
   await expect(card).toContainText(/≈\s*-?R\$\s233,33/);
 
   await card.click();
@@ -81,7 +81,8 @@ test("Paguei leva à página da ocorrência com a estimativa pré-preenchida, se
   await page.goto(`/lancamentos?mes=${month(LUZ)}`);
   await row(page, "Luz t05").getByRole("link", { name: "Efetivar Luz t05" }).click();
 
-  await expect(page.getByRole("heading", { name: "Informar valor pago" })).toBeVisible();
+  // A primeira visita compila a rota no dev server, então vale um prazo maior.
+  await expect(page.getByRole("heading", { name: "Informar valor pago" })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByLabel("Valor", { exact: true })).toHaveValue("233,33");
   await expect(page.getByLabel("Valor", { exact: true })).toBeFocused();
   expect(await total(page)).toBe(before); // nada foi pago ainda
@@ -105,6 +106,6 @@ test("efetivar com o valor real grava esse valor e a previsão do mês seguinte 
 
 async function luzRecurrenceId(page: Page): Promise<string> {
   await page.goto("/agenda");
-  const href = await page.getByRole("link", { name: /Luz t05/ }).getAttribute("href");
+  const href = await page.getByRole("link", { name: /Luz t05/ }).last().getAttribute("href");
   return href!.split("/").pop()!;
 }

@@ -94,9 +94,10 @@ test("categoria pai traz as subcategorias", async ({ page }) => {
   await page.waitForURL(/lancamentos\?/);
 
   await page.goto("/lancamentos");
-  await page.getByText("Busca e filtros").click();
+  await page.waitForLoadState("networkidle"); // o painel é um checkbox: clicar antes de hidratar o desfaz
+  await page.getByText("Mais filtros").click();
   await page.getByLabel("Filtrar por categoria").selectOption({ label: "Pai t06c" });
-  await page.getByRole("button", { name: "Filtrar" }).click();
+  await page.getByRole("button", { name: "Aplicar filtros" }).click();
   await expect(page.getByText("Gasto da filha t06c")).toBeVisible();
 });
 
@@ -122,7 +123,7 @@ test("pagina de 50 em 50, o estado vai na URL e Limpar volta ao padrão", async 
   // Recarregar preserva busca e página.
   await page.reload();
   await expect(page.getByText("Página 2 de 2")).toBeVisible();
-  // Com filtros ativos o formulário já abre expandido.
+  // Com filtros avançados ativos o painel já abre expandido; a busca fica sempre à vista.
   await expect(page.getByLabel("Buscar na descrição")).toHaveValue("parcelão t06c");
 
   await page.getByRole("link", { name: "Limpar filtros" }).click();
@@ -135,14 +136,16 @@ test("pagina de 50 em 50, o estado vai na URL e Limpar volta ao padrão", async 
   await expect(linhas(page).count()).resolves.toBeLessThanOrEqual(1);
 });
 
-test("a visão do mês continua com saldo por dia e, no celular, o formulário é recolhível", async ({ page }) => {
+test("a visão do mês continua com saldo por dia e, no celular, os filtros avançados são recolhíveis", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await entrar(page);
   await page.goto("/lancamentos");
   await expect(page.getByRole("link", { name: "Mês anterior" })).toBeVisible();
-  await expect(page.getByText("Saldo previsto no fim do mês")).toBeVisible();
-  await expect(page.getByLabel("Buscar na descrição")).toBeHidden();
-  await page.getByText("Busca e filtros").click();
+  await expect(page.getByText("Previsto ao fim do mês")).toBeVisible();
   await expect(page.getByLabel("Buscar na descrição")).toBeVisible();
+  await expect(page.getByLabel("Filtrar por categoria")).toBeHidden();
+  await page.waitForLoadState("networkidle"); // o painel é um checkbox: clicar antes de hidratar o desfaz
+  await page.getByText("Mais filtros").click();
+  await expect(page.getByLabel("Filtrar por categoria")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

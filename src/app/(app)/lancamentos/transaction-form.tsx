@@ -75,12 +75,16 @@ export function TransactionForm({
       })
     : [];
   const onCard = accounts.find((a) => a.id === accountId && isCard(a));
-  // Compra nova no cartão entra na fatura que a pessoa vai pagar: começa Prevista, até ela escolher à mão.
-  const cardSuggestsPlanned = !existing && !occurrence && kind !== "transferencia" && !!onCard;
-  const status: TransactionStatus = cardSuggestsPlanned && !statusTouched ? "previsto" : dateStatus;
-
   const canRepeat = !existing && !occurrence && kind !== "transferencia";
   const activeRepeat: Repeat = canRepeat && (repeat !== "parcelado" || kind === "despesa") ? repeat : "none";
+
+  // No cartão a compra já aconteceu: é sempre Efetivada, sem escolha. Só a ocorrência de uma
+  // recorrência ainda não é compra: fica Prevista até a data chegar.
+  const cardLocked = !!onCard && kind !== "transferencia";
+  const recurring = activeRepeat === "recorrente" || !!occurrence || existing?.recurrenceId != null;
+  const status: TransactionStatus = cardLocked
+    ? recurring && date > defaultDate ? "previsto" : "efetivado"
+    : dateStatus;
   const cats = categories.filter((c) => c.kind === kind);
   const parents = cats.filter((c) => c.parentId === null);
 
@@ -177,6 +181,9 @@ export function TransactionForm({
         </p>
       )}
 
+      {cardLocked ? (
+        <input type="hidden" name="status" value={status} />
+      ) : (
       <fieldset>
         <legend className="label">{activeRepeat === "none" ? "Situação" : activeRepeat === "parcelado" ? "Situação da 1ª parcela" : "Situação da 1ª ocorrência"}</legend>
         <div role="radiogroup" className="grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1">
@@ -210,6 +217,7 @@ export function TransactionForm({
             : "Já aconteceu: muda o saldo atual."}
         </p>
       </fieldset>
+      )}
 
       {kind === "transferencia" ? (
         <div>

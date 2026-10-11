@@ -8,6 +8,8 @@ const dbFile = path.join(os.tmpdir(), `saldo-futuro-e2e-${Date.now()}.db`);
 export default defineConfig({
   testDir: "./e2e",
   workers: 1,
+  // O dev server compila cada rota na primeira visita; 5 s não bastam para a asserção que vem logo após a navegação.
+  expect: { timeout: 15_000 },
   use: { baseURL: "http://127.0.0.1:3100", channel: "msedge" },
   webServer: {
     command: "npx next dev -H 127.0.0.1 -p 3100",

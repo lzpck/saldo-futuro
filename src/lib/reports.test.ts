@@ -4,6 +4,9 @@ import {
   spendingByCategory,
   topWithOthers,
   variationPercent,
+  variationOf,
+  variationLabel,
+  periodRange,
   type ReportCategory,
   type ReportTx,
 } from "./reports";
@@ -163,6 +166,10 @@ describe("topWithOthers", () => {
     color: "#000",
     icon: "•",
     totalCents,
+    realizedCents: totalCents,
+    plannedCents: 0,
+    recurringCents: 0,
+    installmentCents: 0,
     children: [],
   });
   it("mantém tudo quando cabe", () => {
@@ -174,6 +181,39 @@ describe("topWithOthers", () => {
     expect(r).toHaveLength(8);
     expect(r[7]).toMatchObject({ name: "Outras", totalCents: 93 + 92 + 91 });
     expect(sumOf(r)).toBe(sumOf(all));
+  });
+});
+
+describe("realizado, previsto e natureza", () => {
+  it("separa realizado de previsto e recorrente/parcelado de pontual", () => {
+    const r = spendingByCategory(
+      [
+        tx({ date: "2026-10-02", amountCents: 1000, categoryId: 1 }),
+        tx({ date: "2026-10-20", amountCents: 500, categoryId: 1, status: "previsto", recurrenceId: 9 }),
+        tx({ date: "2026-10-21", amountCents: 300, categoryId: 1, status: "previsto", purchaseId: 4 }),
+      ],
+      categories,
+      { ...opts, includePlanned: true },
+    );
+    expect(r[0]).toMatchObject({ totalCents: 1800, realizedCents: 1000, plannedCents: 800, recurringCents: 500, installmentCents: 300 });
+  });
+
+  it("filtra por conta", () => {
+    const txs = [tx({ date: "2026-10-02", amountCents: 100, categoryId: 1, accountId: 1 }), tx({ date: "2026-10-02", amountCents: 50, categoryId: 1, accountId: 2 })];
+    expect(spendingByCategory(txs, categories, { ...opts, accountId: 2 })[0].totalCents).toBe(50);
+  });
+});
+
+describe("variationOf / periodRange", () => {
+  it("novo, igual e percentual", () => {
+    expect(variationOf(100, 0)).toEqual({ kind: "new", percent: 0 });
+    expect(variationOf(100, 100)).toEqual({ kind: "same", percent: 0 });
+    expect(variationLabel(variationOf(150, 100))).toBe("+50%");
+    expect(variationLabel(variationOf(0, 0))).toBe("—");
+  });
+  it("trimestre e ano trazem o período anterior de mesmo tamanho", () => {
+    expect(periodRange("2026-10", "trimestre")).toMatchObject({ from: "2026-10-01", to: "2026-12-31", prevFrom: "2026-07-01", prevTo: "2026-09-30" });
+    expect(periodRange("2026-10", "ano")).toMatchObject({ from: "2026-01-01", to: "2026-12-31", prevFrom: "2025-01-01" });
   });
 });
 

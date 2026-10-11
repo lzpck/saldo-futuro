@@ -29,7 +29,7 @@ Conta (ou Conta de cartão) que o usuário marcou como de uso frequente. Pode ha
 Conta que o usuário tirou de uso sem apagar: deixa de ser oferecida para novos Lançamentos, mas mantém o histórico e continua aparecendo onde um Lançamento antigo precisa dela.
 
 **Fatura**:
-Conjunto de compras e estornos de uma Conta de cartão num ciclo de fechamento. É calculada a partir dos Lançamentos (não é gravada) e gera um Lançamento previsto de pagamento no vencimento, debitado da Conta de pagamento, cujo valor se ajusta a novas compras. A compra entra na Fatura que fecha no dia dela ou depois (no dia do fechamento ainda entra). Parcelas e Ocorrências previstas no cartão entram nas Faturas futuras.
+Conjunto de compras e estornos de uma Conta de cartão num ciclo de fechamento. É calculada a partir dos Lançamentos (não é gravada) e gera um Lançamento previsto de pagamento no vencimento, debitado da Conta de pagamento, cujo valor se ajusta a novas compras. A compra entra na Fatura que fecha no dia dela ou depois (no dia do fechamento ainda entra). Parcelas (Efetivadas) e Ocorrências previstas no cartão entram nas Faturas futuras.
 
 **Pagamento de fatura**:
 Transferência efetivada da Conta de pagamento para o cartão. Os pagamentos abatem as Faturas da mais antiga para a mais nova, então uma transferência manual para o cartão também conta. Pagamento parcial deixa o restante previsto no mesmo vencimento; compra tardia num ciclo já pago gera um novo pagamento só da diferença.
@@ -52,7 +52,7 @@ Lançamento que move dinheiro entre duas Contas (inclui pagamento de Fatura). N�
 **Previsto**:
 Estado de um Lançamento que ainda não aconteceu de fato. Entra na Projeção de saldo.
 
-Ao criar uma Despesa ou Receita numa Conta de cartão, o Lançamento já começa Previsto, qualquer que seja a data: ele entra na Fatura que o usuário vai pagar. A escolha manual do estado sempre vence a sugestão, e editar um Lançamento existente não muda o estado sozinho.
+Numa Conta de cartão, uma compra ou estorno lançado é sempre Efetivado, qualquer que seja a data ou a Fatura em que caia: a compra já aconteceu, e todas as Parcelas de uma Compra parcelada no cartão nascem Efetivadas. O que fica Previsto é o pagamento da Fatura, que o usuário confirma ao pagar. A exceção são as Ocorrências de uma Recorrência no cartão: ainda não são compra, ficam Previstas e viram Efetivadas sozinhas quando a data chega, sem confirmação. Fora do cartão, a data só sugere o estado e a escolha do usuário vale.
 
 **Efetivado**:
 Estado de um Lançamento que aconteceu, com o valor real. Só os Efetivados compõem o Saldo atual.
@@ -60,7 +60,7 @@ _Evitar_: pago, confirmado
 
 **Em atraso**:
 Lançamento Previsto cuja data já passou sem ter sido Efetivado. Na Projeção de saldo conta como se fosse hoje, até o usuário Efetivar, reagendar ou descartar.
-Numa Conta de cartão a data da compra não conta: o Lançamento só está Em atraso quando a Fatura dele já venceu e ainda tem saldo a pagar (todas as compras da Fatura, mesmo com pagamento parcial). Os dias de atraso contam do vencimento da Fatura. Esse atraso aparece na lista de Lançamentos e no filtro, mas não no painel de Contas em aberto, onde fica só o pagamento da Fatura.
+Numa Conta de cartão as compras são Efetivadas e nunca ficam Em atraso: o que fica Em atraso é o pagamento da Fatura vencida e ainda com saldo a pagar (mesmo com pagamento parcial), contando os dias do vencimento. Esse atraso aparece também no painel de Contas em aberto.
 
 **Saldo atual**:
 Saldo inicial da Conta mais todos os Lançamentos Efetivados dela.
@@ -86,8 +86,11 @@ Lançamento Previsto que ainda precisa de ação do usuário: Em atraso ou vence
 Numa Conta de cartão, a Conta em aberto é a Fatura (o que falta pagar dela), nunca as compras avulsas. A próxima Fatura em aberto de cada cartão conta mesmo vencendo depois do horizonte.
 _Evitar_: pendência
 
-**Quitar o restante**:
-Efetivar de uma vez, hoje, todas as Parcelas ainda previstas de uma Compra parcelada. **Cancelar o restante** apaga essas Parcelas; as já efetivadas ficam.
+**Antecipar parcelas**:
+Pagar hoje as últimas N Parcelas restantes de uma Compra parcelada (N de 1 até o total restante; todas é o caso "quitar"). O usuário informa o valor cobrado, que vem preenchido com a soma original; o desconto é a diferença, dividido em partes iguais entre as Parcelas antecipadas. Cada Parcela mantém seu número, mas passa a ter a data de hoje e o valor ajustado: no cartão cai na Fatura aberta, fora dele fica Efetivada. Substitui o antigo "Quitar o restante".
+
+**Cancelar o restante**:
+Apagar as Parcelas restantes de uma Compra parcelada. Fora do cartão, são as ainda Previstas; no cartão, as de Faturas ainda não pagas. As demais ficam.
 
 **Recorrência variável**:
 Recorrência cujo valor muda a cada ciclo (luz, gás). O valor real é informado ao Efetivar e o valor Previsto vem da Previsão de valor.
@@ -96,10 +99,10 @@ Recorrência cujo valor muda a cada ciclo (luz, gás). O valor real é informado
 Estimativa do valor de uma Recorrência variável, calculada por média ponderada dos últimos meses ajustada por sazonalidade. Explicável ao usuário.
 
 **Compra parcelada**:
-Compra dividida em N parcelas, cada uma sendo um Lançamento Previsto no seu mês (ou na Fatura do seu mês, se for no cartão).
+Compra dividida em N parcelas, cada uma sendo um Lançamento no seu mês: Previsto, fora do cartão. No cartão, todas as Parcelas são Efetivadas e cada uma cai na Fatura do seu mês.
 
 **Parcela**:
-Cada Lançamento Previsto de uma Compra parcelada. Pode ser editada individualmente (valor, data). As futuras podem ser canceladas em bloco ("cancelar restante") ou antecipadas.
+Cada Lançamento de uma Compra parcelada (Previsto fora do cartão, Efetivado no cartão). Pode ser editada individualmente (valor, data). As futuras podem ser canceladas em bloco ("cancelar restante") ou antecipadas.
 
 **Saldo de fim de dia**:
 Saldo total depois de todos os Lançamentos do dia; é o valor mostrado em cada dia da lista. Hoje divide a lista entre Efetivado (acima) e projetado (abaixo).

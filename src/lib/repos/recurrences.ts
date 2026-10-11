@@ -8,7 +8,7 @@ import {
   type Frequency,
   type RecurrenceRule,
 } from "../recurrence";
-import { getAccount } from "./accounts";
+import { getAccount, type AccountKind } from "./accounts";
 import { getCategory } from "./categories";
 import {
   createTransaction,
@@ -27,6 +27,7 @@ export type Recurrence = RecurrenceRule & {
   amountCents: number;
   accountId: number;
   accountName: string;
+  accountKind: AccountKind;
   categoryId: number | null;
   categoryName: string | null;
   categoryIcon: string | null;
@@ -64,6 +65,7 @@ type Row = {
   amount_cents: number;
   account_id: number;
   account_name: string;
+  account_kind: AccountKind;
   category_id: number | null;
   category_name: string | null;
   category_icon: string | null;
@@ -77,7 +79,7 @@ type Row = {
 };
 
 const SELECT = `
-  SELECT r.*, a.name AS account_name,
+  SELECT r.*, a.name AS account_name, a.kind AS account_kind,
          c.name AS category_name, c.icon AS category_icon, c.color AS category_color
   FROM recurrences r
   JOIN accounts a ON a.id = r.account_id
@@ -91,6 +93,7 @@ const toRecurrence = (r: Row): Recurrence => ({
   amountCents: r.amount_cents,
   accountId: r.account_id,
   accountName: r.account_name,
+  accountKind: r.account_kind,
   categoryId: r.category_id,
   categoryName: r.category_name,
   categoryIcon: r.category_icon,
@@ -338,6 +341,7 @@ export function listVirtualOccurrences(db: Db, to: string): Transaction[] {
       description: rule.description,
       accountId: rule.accountId,
       accountName: rule.accountName,
+      accountKind: rule.accountKind,
       toAccountId: null,
       toAccountName: null,
       categoryId: rule.categoryId,
@@ -365,7 +369,8 @@ export function listWithOccurrences(db: Db, to: string): Transaction[] {
 
 /**
  * Efetiva uma ocorrência. `amountCents` é o valor real (Recorrência variável); sem ele vale o valor
- * previsto da ocorrência, o mesmo que a lista mostrava.
+ * previsto da ocorrência, o mesmo que a lista mostrava. `preserveDate` mantém a data da ocorrência
+ * mesmo que seja futura em relação a `today` (usado ao quitar fatura de cartão com ocorrências do ciclo).
  */
 export function effectuateOccurrence(
   db: Db,
@@ -373,19 +378,24 @@ export function effectuateOccurrence(
   occurrenceDate: string,
   today: string,
   amountCents?: number,
+  preserveDate = false,
 ): void {
   const rule = requireOccurrence(db, recurrenceId, occurrenceDate);
   const amount = amountCents ?? predictOccurrence(db, rule, occurrenceDate)?.amountCents ?? rule.amountCents;
   db.transaction(() => {
     const existing = overrideId(db, recurrenceId, occurrenceDate);
     if (existing !== undefined) {
-      markEffectuated(db, existing, today);
+      if (preserveDate) {
+        db.prepare("UPDATE transactions SET status = 'efetivado' WHERE id = ? AND status = 'previsto'").run(existing);
+      } else {
+        markEffectuated(db, existing, today);
+      }
       return;
     }
     createTransaction(db, {
       kind: rule.kind,
       status: "efetivado",
-      date: occurrenceDate > today ? today : occurrenceDate,
+      date: preserveDate ? occurrenceDate : occurrenceDate > today ? today : occurrenceDate,
       amountCents: amount,
       description: rule.description,
       accountId: rule.accountId,

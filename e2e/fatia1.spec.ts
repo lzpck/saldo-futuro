@@ -61,6 +61,8 @@ test("excluir lançamento devolve o saldo", async ({ page }) => {
   await entrar(page);
 
   await page.goto("/lancamentos");
+  await page.getByRole("button", { name: "Ações para Mercado do mês" }).click();
+  await page.getByRole("menuitem", { name: "Excluir" }).click();
   await page.getByRole("button", { name: "Excluir Mercado do mês" }).click();
   await expect(page.locator("li", { hasText: "Mercado do mês" })).toHaveCount(0);
   await page.goto("/");

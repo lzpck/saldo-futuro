@@ -179,6 +179,15 @@ const MIGRATIONS: Migration[] = [
       );
     `);
   },
+  // ADR 0004: compra, estorno e parcela em Conta de cartão são sempre Efetivados. Ocorrências de
+  // Recorrência no cartão continuam como estão (viram Efetivadas quando a data chega).
+  (db) => {
+    db.exec(`
+      UPDATE transactions SET status = 'efetivado'
+      WHERE status = 'previsto' AND kind <> 'transferencia' AND recurrence_id IS NULL
+        AND account_id IN (SELECT id FROM accounts WHERE kind = 'cartao');
+    `);
+  },
 ];
 
 export function migrate(db: Database.Database): void {

@@ -45,24 +45,25 @@ test("despesas em categoria e subcategoria: valores, percentuais e detalhe na ta
   await despesa(page, "Reparo t06", "20,00", "12", "Casa t06");
 
   await page.goto(`/relatorios?mes=${MES}`);
-  const tabela = page.getByRole("table", { name: "Despesas por categoria" });
-  const casa = tabela.locator("tr", { hasText: "Casa t06" });
-  const mercado = tabela.locator("tr", { hasText: "Mercado" });
-  await expect(mercado).toContainText("R$ 100,00");
-  await expect(mercado).toContainText("66,7%");
+  const lista = page.getByRole("list", { name: "Despesas por categoria" });
+  const casa = lista.getByRole("listitem").filter({ hasText: "Casa t06" });
+  const mercado = lista.getByRole("listitem").filter({ hasText: "Mercado" });
+  await expect(mercado.first()).toContainText("R$ 100,00");
+  await expect(mercado.first()).toContainText("66,7%");
   await expect(casa).toContainText("R$ 50,00"); // subcategoria soma no pai
   await expect(casa).toContainText("33,3%");
-  await expect(tabela.locator("tfoot")).toContainText("R$ 150,00");
+  await expect(page.getByText("R$ 150,00").first()).toBeVisible();
 
-  await casa.getByRole("link", { name: /Casa t06/ }).click();
-  const detalhe = page.getByRole("region").filter({ has: page.getByRole("heading", { name: /Casa t06/ }) });
+  await casa.locator("summary").click();
+  const detalhe = casa.getByRole("list", { name: /Subcategorias de Casa t06/ });
   await expect(detalhe).toContainText("Luz t06");
   await expect(detalhe).toContainText("R$ 30,00");
   await expect(detalhe).toContainText("Outros de Casa t06");
   await expect(detalhe).toContainText("R$ 20,00");
 
-  await detalhe.getByRole("link", { name: "Ver lançamentos" }).click();
-  await expect(page).toHaveURL(/lancamentos\?mes=2025-03&categoria=\d+/);
+  await casa.getByRole("link", { name: "Ver lançamentos" }).click();
+  await expect(page).toHaveURL(/lancamentos\?.*mes=2025-03/);
+  await expect(page).toHaveURL(/categoria=\d+/);
   await expect(page.locator("li", { hasText: "Conta de luz t06" })).toBeVisible();
   await expect(page.locator("li", { hasText: "Reparo t06" })).toBeVisible();
   await expect(page.locator("li", { hasText: "Mercado t06" })).toHaveCount(0);

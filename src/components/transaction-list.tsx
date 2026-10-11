@@ -6,7 +6,7 @@ import { isOverdue } from "@/lib/projection";
 import { Amount } from "./amount";
 import { FormLink } from "./form-link";
 
-function signedCents(t: Transaction): number {
+export function signedCents(t: Transaction): number {
   if (t.kind === "receita") return t.amountCents;
   if (t.kind === "despesa") return -t.amountCents;
   return 0;
@@ -37,7 +37,7 @@ function StatusBadge({ t, today }: { t: Transaction; today: string }) {
 }
 
 /** Identifica a linha para as Server Actions: lançamento gravado (id) ou ocorrência virtual. */
-function RowIdentity({ t }: { t: Transaction }) {
+export function RowIdentity({ t }: { t: Transaction }) {
   if (t.invoiceCardId !== null) {
     return (
       <>
@@ -57,7 +57,7 @@ function RowIdentity({ t }: { t: Transaction }) {
 }
 
 /** Fatura abre a página do cartão; os demais abrem o formulário e lembram de onde vieram. */
-function RowLink({ href, isInvoice, className, children }: { href: string; isInvoice: boolean; className: string; children: React.ReactNode }) {
+export function RowLink({ href, isInvoice, className, children }: { href: string; isInvoice: boolean; className: string; children: React.ReactNode }) {
   return isInvoice ? (
     <Link href={href} className={className}>{children}</Link>
   ) : (
@@ -71,6 +71,7 @@ export function TransactionRow({ t, actions = false }: { t: Transaction; actions
     t.kind === "transferencia" ? `${t.accountName} → ${t.toAccountName}` : `${t.categoryName ?? "Sem categoria"} · ${t.accountName}`;
   const planned = t.status === "previsto";
   const isInvoice = t.invoiceCardId !== null;
+  const isCardPurchase = t.accountKind === "cartao" && !isInvoice;
   const href = isInvoice
     ? `/cartoes/${t.invoiceCardId}#fatura-${t.invoiceClosing}`
     : t.isVirtual
@@ -118,23 +119,25 @@ export function TransactionRow({ t, actions = false }: { t: Transaction; actions
       </div>
       {actions && (
         <div className="flex items-center gap-2 max-sm:w-full max-sm:justify-end">
-          {planned && t.isEstimate && t.recurrenceId !== null && t.occurrenceDate !== null ? (
-            // Valor variável: o real é informado na página da ocorrência, nunca pago em silêncio pela estimativa.
-            <FormLink
-              href={`/agenda/ocorrencia/${t.recurrenceId}/${t.occurrenceDate}?pago=1`}
-              className="btn px-2.5 py-1 text-xs"
-              aria-label={`Efetivar ${t.description}`}
-            >
-              {t.kind === "receita" ? "Recebi" : "Paguei"}
-            </FormLink>
-          ) : (
-            planned && (
-            <form action={effectuateTransaction}>
-              <RowIdentity t={t} />
-              <button className="btn px-2.5 py-1 text-xs" aria-label={`Efetivar ${t.description}`}>
-                {t.kind === "receita" ? "Recebi" : t.kind === "despesa" || isInvoice ? "Paguei" : "Feita"}
-              </button>
-            </form>
+          {!isCardPurchase && (
+            planned && t.isEstimate && t.recurrenceId !== null && t.occurrenceDate !== null ? (
+              // Valor variável: o real é informado na página da ocorrência, nunca pago em silêncio pela estimativa.
+              <FormLink
+                href={`/agenda/ocorrencia/${t.recurrenceId}/${t.occurrenceDate}?pago=1`}
+                className="btn px-2.5 py-1 text-xs"
+                aria-label={`Efetivar ${t.description}`}
+              >
+                {t.kind === "receita" ? "Recebi" : "Paguei"}
+              </FormLink>
+            ) : (
+              planned && (
+                <form action={effectuateTransaction}>
+                  <RowIdentity t={t} />
+                  <button className="btn px-2.5 py-1 text-xs" aria-label={`Efetivar ${t.description}`}>
+                    {t.kind === "receita" ? "Recebi" : t.kind === "despesa" || isInvoice ? "Paguei" : "Feita"}
+                  </button>
+                </form>
+              )
             )
           )}
           {!isInvoice && (

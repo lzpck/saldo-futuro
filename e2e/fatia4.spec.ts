@@ -24,7 +24,7 @@ async function entrar(page: Page) {
   await page.waitForURL((url) => url.pathname === "/");
 }
 
-const saldoTotal = (page: Page) => page.getByText("Saldo total", { exact: true }).locator("xpath=following-sibling::p[1]");
+const saldoTotal = (page: Page) => page.getByTestId("saldo-total");
 async function total(page: Page): Promise<number> {
   await page.goto("/");
   return parseBRL((await saldoTotal(page).innerText()).replace(/\s/g, " "))!;
@@ -67,21 +67,23 @@ test("compra no cartão não muda o saldo; entra na fatura do ciclo certo", asyn
   await page.getByLabel("Categoria").selectOption({ label: "Mercado" });
   await expect(page.getByText("Compra no cartão: entra na fatura do ciclo")).toBeVisible();
   await page.getByRole("button", { name: "Adicionar lançamento" }).click();
-  await page.waitForURL(/lancamentos\?mes/);
+  await page.waitForURL(/cartoes\/\d+/);
 
   expect(await total(page)).toBe(before); // o dinheiro ainda não saiu
 
   // O cartão no Resumo mostra a fatura e o vencimento calculados.
-  const tile = cartaoLink(page);
+  const tile = page.locator("h4", { hasText: "Cartão teste" }).locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]");
   await expect(tile).toContainText(/R\$\s250,00/);
-  await expect(tile).toContainText(`fatura vence em ${brDate(DUE)}`);
+  await expect(tile).toContainText(`Vence em ${brDate(DUE)}`);
 
   // A página do cartão mostra a fatura aberta com a compra.
-  await tile.click();
+  await tile.getByRole("link", { name: "Pagar fatura" }).click();
   await expect(page.getByText("Em aberto nas faturas").locator("xpath=following-sibling::span[1]")).toHaveText(/R\$\s250,00/);
   const fatura = page.locator(`#fatura-${CLOSING}`);
   await expect(fatura).toContainText(`vence ${brDate(DUE)}`);
-  await expect(fatura.locator("li", { hasText: "Mercado cartão" })).toBeVisible();
+  const item = fatura.locator("li", { hasText: "Mercado cartão" });
+  await expect(item).toBeVisible();
+  await expect(item.getByRole("button", { name: /Efetivar/ })).toHaveCount(0);
 });
 
 test("o pagamento da fatura aparece previsto no vencimento, debitando a conta de pagamento", async ({ page }) => {
@@ -90,8 +92,8 @@ test("o pagamento da fatura aparece previsto no vencimento, debitando a conta de
   const pagamento = row(page, "Fatura Cartão teste");
   await expect(pagamento).toBeVisible();
   await expect(pagamento).toContainText(/R\$\s250,00/);
-  await expect(pagamento).toContainText("Nubank → Cartão teste");
-  await expect(pagamento).toContainText(brDate(DUE));
+  await expect(pagamento).toContainText(/Nubank\s*arrow_forward\s*Cartão teste/);
+  await expect(pagamento).toContainText(brDate(DUE).slice(0, 5));
 });
 
 test("pagamento parcial abate a fatura e sai da conta", async ({ page }) => {
@@ -119,6 +121,14 @@ test("pagar o restante pelo botão da lista quita a fatura", async ({ page }) =>
 
   await page.goto("/contas");
   await expect(cartaoLink(page)).toContainText("Nenhuma fatura em aberto");
+
+  await cartaoLink(page).click();
+  const faturasPagas = page.locator("details", { hasText: "Faturas pagas" }).first(); // a fatura paga é outro <details>, dentro deste
+  await expect(faturasPagas).toBeVisible();
+  await faturasPagas.locator(":scope > summary").click();
+  const itemPago = faturasPagas.locator("li", { hasText: "Mercado cartão" });
+  await expect(itemPago).toBeVisible();
+  await expect(itemPago.getByRole("button")).toHaveCount(0);
 });
 
 test("compra nova num ciclo já pago gera um pagamento só da diferença", async ({ page }) => {

@@ -8,7 +8,7 @@ import {
   createInstallmentPurchase,
   getPurchase,
   listPurchases,
-  settleRemaining,
+  anticipateInstallments,
 } from "./installments";
 import {
   createRecurrence,
@@ -307,16 +307,31 @@ describe("compra parcelada", () => {
     expect(getPurchase(db, pid)).toMatchObject({ remainingCount: 0, nextDate: null });
   });
 
-  it("quitar o restante efetiva tudo hoje", () => {
+  it("antecipar as últimas N parcelas usa o valor cobrado e a data de hoje", () => {
+    const pid = createInstallmentPurchase(db, base()); // 6 x 30.000, todas previstas
+    anticipateInstallments(db, pid, { count: 2, chargedCents: 55_001, today: TODAY });
+    const rows = listTransactions(db, { purchaseId: pid }).sort((a, b) => a.installmentNo! - b.installmentNo!);
+    expect(rows.slice(4).map((t) => [t.installmentNo, t.status, t.date, t.amountCents])).toEqual([
+      [5, "efetivado", TODAY, 27_501],
+      [6, "efetivado", TODAY, 27_500],
+    ]);
+    expect(rows.slice(0, 4).every((t) => t.status === "previsto")).toBe(true);
+    expect(getAccount(db, acc)!.balanceCents).toBe(1_000_000 - 55_001);
+    expect(getPurchase(db, pid)).toMatchObject({ paidCount: 2, remainingCount: 4 });
+  });
+
+  it("antecipar todas quita a compra; mais que o restante é recusado", () => {
     const pid = createInstallmentPurchase(db, base());
-    settleRemaining(db, pid, TODAY);
+    expect(() => anticipateInstallments(db, pid, { count: 7, chargedCents: 100, today: TODAY })).toThrow(/Só há 6/);
+    expect(() => anticipateInstallments(db, pid, { count: 1, chargedCents: 0, today: TODAY })).toThrow(/maior que zero/);
+    anticipateInstallments(db, pid, { count: 6, chargedCents: 180_000, today: TODAY });
     expect(getAccount(db, acc)!.balanceCents).toBe(1_000_000 - 180_000);
     expect(getPurchase(db, pid)).toMatchObject({ paidCount: 6, remainingCount: 0 });
   });
 
   it("lista compras em aberto antes das quitadas", () => {
     const quitada = createInstallmentPurchase(db, { ...base(), description: "Quitada" });
-    settleRemaining(db, quitada, TODAY);
+    anticipateInstallments(db, quitada, { count: 6, chargedCents: 180_000, today: TODAY });
     const aberta = createInstallmentPurchase(db, { ...base(), description: "Aberta" });
     expect(listPurchases(db).map((p) => p.id)).toEqual([aberta, quitada]);
   });
@@ -355,18 +370,22 @@ describe("atraso de compra no cartão", () => {
     expect(isOverdue(purchase(id), TODAY)).toBe(false);
   });
 
-  it("compra prevista numa fatura vencida e não paga está em atraso desde o vencimento da fatura", () => {
+  it("compra numa fatura vencida e não paga é Efetivada e não atrasa: o que atrasa é o pagamento da fatura", () => {
     const id = buy("2026-09-10"); // fatura 25/09, venceu 05/10
-    const t = purchase(id);
-    expect(isOverdue(t, TODAY)).toBe(true);
-    expect(t.overdueSince).toBe("2026-10-05");
+    expect(purchase(id)).toMatchObject({ status: "efetivado" });
+    expect(isOverdue(purchase(id), TODAY)).toBe(false);
+    const payment = listSchedule(db, "2026-12-31", TODAY).find((t) => t.invoiceCardId === card)!;
+    expect(isOverdue(payment, TODAY)).toBe(true);
   });
 
-  it("pagamento parcial deixa todas as compras da fatura em atraso", () => {
+  it("pagamento parcial deixa o restante da fatura em atraso, sem marcar compras", () => {
     const a = buy("2026-09-10");
     const b = buy("2026-09-12");
     createTransaction(db, { kind: "transferencia", status: "efetivado", date: "2026-10-06", amountCents: 10_000, description: "Pix", accountId: acc, toAccountId: card });
-    expect([a, b].map((id) => isOverdue(purchase(id), TODAY))).toEqual([true, true]);
+    expect([a, b].map((id) => isOverdue(purchase(id), TODAY))).toEqual([false, false]);
+    const payment = listSchedule(db, "2026-12-31", TODAY).find((t) => t.invoiceCardId === card)!;
+    expect(payment.amountCents).toBe(10_000);
+    expect(isOverdue(payment, TODAY)).toBe(true);
   });
 
   it("fatura vencida e quitada não deixa compra em atraso", () => {

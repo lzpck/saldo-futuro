@@ -86,7 +86,7 @@ export function OpenInvoice({
         <ul className="divide-y divide-line">
           {inv.items.map((t) => (
             // Compra em cartão só está em atraso quando a fatura venceu sem pagamento.
-            <TransactionRow key={t.id} t={{ ...t, overdueSince: overdue ? inv.dueDate : null }} actions />
+            <TransactionRow key={t.id} t={{ ...t, overdueSince: overdue ? inv.dueDate : null }} actions={inv.status !== "paga"} />
           ))}
         </ul>
 

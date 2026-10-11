@@ -1,6 +1,8 @@
 import type { Db } from "../db/connection";
 import { allocatePayments, closingDateFor, computeInvoices, type InvoiceWithPayment } from "../cards";
+import { addDays } from "../projection";
 import { getAccount, isCard, listAccounts, type AccountWithBalance } from "./accounts";
+import { effectuateOccurrence, listWithOccurrences } from "./recurrences";
 import { createTransaction, type Transaction } from "./transactions";
 
 /** "Fatura Nubank 11/26" — o mês é o do vencimento, que é como se costuma falar da fatura. */
@@ -81,6 +83,7 @@ export function listInvoicePayments(db: Db, base: Transaction[], to: string, tod
         description: invoiceLabel(c.name, inv.dueDate),
         accountId: payer.id,
         accountName: payer.name,
+        accountKind: payer.kind,
         toAccountId: c.id,
         toAccountName: c.name,
         categoryId: null,
@@ -116,6 +119,73 @@ export type PayInvoiceInput = {
 };
 
 /**
+ * Para cada fatura do cartão que estiver quitada (status 'paga' com saldo restante zerado),
+ * efetiva todas as compras/estornos do ciclo que ainda estiverem como 'previsto', preservando suas datas originais.
+ * Ocorrências virtuais de recorrências no ciclo quitado são materializadas no banco como efetivadas.
+ */
+export function settlePaidInvoices(db: Db, cardId: number, today: string): void {
+  const account = getAccount(db, cardId);
+  if (!account || !isCard(account) || account.closingDay === null || account.dueDay === null || account.payAccountId === null) return;
+  const base = listWithOccurrences(db, addDays(today, 400));
+  const invoices = cardInvoices(db, account, base, today);
+  for (const inv of invoices) {
+    if (inv.remainingCents === 0 && inv.status === "paga") {
+      for (const item of inv.items) {
+        if (item.status === "previsto") {
+          if (item.isVirtual && item.recurrenceId !== null && item.occurrenceDate !== null) {
+            effectuateOccurrence(db, item.recurrenceId, item.occurrenceDate, today, item.amountCents, true);
+          } else if (item.id > 0) {
+            db.prepare(
+              "UPDATE transactions SET status = 'efetivado' WHERE id = ? AND status = 'previsto'",
+            ).run(item.id);
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Ocorrências de Recorrência no cartão ainda não são compra: ficam Previstas e, quando a data chega,
+ * viram Efetivadas sozinhas (ADR 0004). Chame antes de ler as listas.
+ */
+export function settleDueCardOccurrences(db: Db, today: string): void {
+  const cardIds = new Set(listAccounts(db).filter(isCard).map((a) => a.id));
+  if (cardIds.size === 0) return;
+  for (const t of listWithOccurrences(db, today)) {
+    if (t.status !== "previsto" || t.recurrenceId === null || t.kind === "transferencia" || !cardIds.has(t.accountId)) continue;
+    if (t.isVirtual && t.occurrenceDate !== null) {
+      effectuateOccurrence(db, t.recurrenceId, t.occurrenceDate, today, t.amountCents, true);
+    } else if (t.id > 0) {
+      db.prepare("UPDATE transactions SET status = 'efetivado' WHERE id = ? AND status = 'previsto'").run(t.id);
+    }
+  }
+}
+
+/**
+ * Parcelas de uma Compra parcelada no cartão que ainda dependem de pagamento: as de Faturas não quitadas.
+ * Devolve null se a compra não é de cartão (aí vale o estado Previsto da própria parcela).
+ */
+export function unpaidInstallmentIds(db: Db, purchaseId: number, today: string): Set<number> | null {
+  const purchase = db.prepare("SELECT account_id FROM installment_purchases WHERE id = ?").get(purchaseId) as
+    | { account_id: number }
+    | undefined;
+  const card = purchase && getAccount(db, purchase.account_id);
+  if (!card || !isCard(card) || card.closingDay === null || card.dueDay === null || card.payAccountId === null) return null;
+
+  const last = db.prepare("SELECT MAX(date) AS d FROM transactions WHERE purchase_id = ?").get(purchaseId) as { d: string | null };
+  const unpaid = new Set<number>();
+  if (last.d === null) return unpaid;
+
+  const base = listWithOccurrences(db, last.d > today ? last.d : today);
+  for (const inv of cardInvoices(db, card, base, today)) {
+    if (inv.remainingCents === 0 && inv.status === "paga") continue;
+    for (const item of inv.items) if (item.purchaseId === purchaseId) unpaid.add(item.id);
+  }
+  return unpaid;
+}
+
+/**
  * Registra o pagamento de uma fatura como Transferência efetivada da conta para o cartão.
  * `base` deve conter as compras do cartão até o fechamento da fatura.
  */
@@ -132,7 +202,7 @@ export function payInvoice(db: Db, base: Transaction[], input: PayInvoiceInput):
   const amountCents = input.amountCents ?? invoice.remainingCents;
   if (!Number.isSafeInteger(amountCents) || amountCents <= 0) throw new Error("Não há valor em aberto nesta fatura.");
 
-  return createTransaction(db, {
+  const txId = createTransaction(db, {
     kind: "transferencia",
     status: "efetivado",
     date: input.date ?? (invoice.dueDate > input.today ? input.today : invoice.dueDate),
@@ -141,4 +211,8 @@ export function payInvoice(db: Db, base: Transaction[], input: PayInvoiceInput):
     accountId: fromId,
     toAccountId: card.id,
   });
+
+  settlePaidInvoices(db, card.id, input.today);
+
+  return txId;
 }

@@ -320,7 +320,7 @@ describe("migração", () => {
     db.pragma("user_version = 3");
     migrate(db);
 
-    expect(db.pragma("user_version", { simple: true })).toBe(7);
+    expect(db.pragma("user_version", { simple: true })).toBe(8);
     expect(getRecurrence(db, id)).toMatchObject({ seriesId: id, isVariable: false, description: "Luz" });
     expect(getRecurrence(db, tx)).toMatchObject({ seriesId: tx, isVariable: false, amountCents: 150_000 });
     expect(listTransactions(db)).toHaveLength(1);

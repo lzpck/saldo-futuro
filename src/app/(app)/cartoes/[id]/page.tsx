@@ -64,7 +64,7 @@ function InvoiceBlock({
 
       <ul className="mt-2 divide-y divide-line border-t border-line">
         {inv.items.map((t) => (
-          <TransactionRow key={t.id} t={t} actions />
+          <TransactionRow key={t.id} t={t} actions={inv.status !== "paga"} />
         ))}
       </ul>
 

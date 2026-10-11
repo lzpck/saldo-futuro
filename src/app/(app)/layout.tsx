@@ -1,5 +1,6 @@
 import { verifySession } from "@/lib/auth/dal";
 import { Suspense } from "react";
+import { AppMain } from "@/components/app-main";
 import { BudgetNoticeBar } from "@/components/budget-notice";
 import { Nav } from "@/components/nav";
 
@@ -10,14 +11,15 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <>
       <Nav />
-      <main className="mx-auto max-w-4xl px-4 pb-28 pt-6 md:ml-60 md:max-w-none md:px-10 md:pb-10 md:pt-10">
-        <div className="mx-auto max-w-4xl">
+      <AppMain
+        notice={
           <Suspense>
             <BudgetNoticeBar />
           </Suspense>
-          {children}
-        </div>
-      </main>
+        }
+      >
+        {children}
+      </AppMain>
     </>
   );
 }

@@ -1,5 +1,5 @@
 import type { Db } from "../db/connection";
-import { getAccount } from "./accounts";
+import { getAccount, type AccountKind } from "./accounts";
 import { getCategory } from "./categories";
 
 export type TransactionKind = "receita" | "despesa" | "transferencia";
@@ -14,6 +14,7 @@ export type Transaction = {
   description: string;
   accountId: number;
   accountName: string;
+  accountKind: AccountKind;
   toAccountId: number | null;
   toAccountName: string | null;
   categoryId: number | null;
@@ -68,6 +69,7 @@ type Row = {
   description: string;
   account_id: number;
   account_name: string;
+  account_kind: AccountKind;
   to_account_id: number | null;
   to_account_name: string | null;
   category_id: number | null;
@@ -82,7 +84,7 @@ type Row = {
 };
 
 const SELECT = `
-  SELECT t.*, a.name AS account_name, ta.name AS to_account_name,
+  SELECT t.*, a.name AS account_name, a.kind AS account_kind, ta.name AS to_account_name,
          c.name AS category_name, c.icon AS category_icon, c.color AS category_color,
          ip.total_installments AS installment_total
   FROM transactions t
@@ -101,6 +103,7 @@ const toTransaction = (r: Row): Transaction => ({
   description: r.description,
   accountId: r.account_id,
   accountName: r.account_name,
+  accountKind: r.account_kind,
   toAccountId: r.to_account_id,
   toAccountName: r.to_account_name,
   categoryId: r.category_id,
@@ -145,8 +148,20 @@ function validate(db: Db, input: TransactionInput): void {
   }
 }
 
+/**
+ * Compra ou estorno em Conta de cartão já aconteceu: é sempre Efetivado (ADR 0004). A exceção são os
+ * Lançamentos de uma Recorrência, que ainda não são compra e mantêm o estado informado.
+ */
+function resolveStatus(db: Db, input: TransactionInput, recurrenceId: number | null): TransactionStatus {
+  if (input.kind !== "transferencia" && recurrenceId == null && getAccount(db, input.accountId)?.kind === "cartao") {
+    return "efetivado";
+  }
+  return input.status ?? "efetivado";
+}
+
 export function createTransaction(db: Db, input: TransactionInput): number {
   validate(db, input);
+  const status = resolveStatus(db, input, input.recurrenceId ?? null);
   const { lastInsertRowid } = db
     .prepare(
       `INSERT INTO transactions
@@ -156,7 +171,7 @@ export function createTransaction(db: Db, input: TransactionInput): number {
     )
     .run(
       input.kind,
-      input.status ?? "efetivado",
+      status,
       input.date,
       input.amountCents,
       input.description,
@@ -184,7 +199,7 @@ export function updateTransaction(db: Db, id: number, input: TransactionInput): 
        account_id = ?, to_account_id = ?, category_id = ? WHERE id = ?`,
   ).run(
     input.kind,
-    input.status ?? "efetivado",
+    resolveStatus(db, input, current?.recurrence_id ?? null),
     input.date,
     input.amountCents,
     input.description,

@@ -23,7 +23,7 @@ async function entrar(page: Page) {
   await page.waitForURL((url) => url.pathname === "/");
 }
 
-const saldoTotal = (page: Page) => page.getByText("Saldo total", { exact: true }).locator("xpath=following-sibling::p[1]");
+const saldoTotal = (page: Page) => page.getByTestId("saldo-total");
 
 test("data futura sugere Previsto, e o usuário pode trocar", async ({ page }) => {
   await entrar(page);
@@ -66,13 +66,13 @@ test("previstos não mudam o saldo atual, mas entram na projeção por dia", asy
   await page.goto("/lancamentos");
   const hoje = page.locator("#hoje");
   await expect(hoje).toContainText("Luz atrasada");
-  await expect(hoje).toContainText("Em atraso · 1 dia");
-  await expect(hoje.locator("header")).toContainText(/R\$\s3\.950,00/);
+  await expect(hoje).toContainText("Pendente de confirmação");
+  await expect(hoje).toContainText(/R\$\s3\.950,00/);
 
   // O previsto de amanhã pesa só a partir do seu dia (3.950 - 100).
   await page.goto(`/lancamentos?mes=${TOMORROW.slice(0, 7)}`);
   const amanha = page.locator("section", { has: page.locator("li", { hasText: "Internet" }) });
-  await expect(amanha.locator("header")).toContainText(/R\$\s3\.850,00/);
+  await expect(amanha).toContainText(/R\$\s3\.850,00/);
   await expect(page.getByText("Projeção", { exact: true })).toBeVisible();
   await expect(page.getByRole("img", { name: /gráfico|Gráfico/ }).or(page.locator("figure svg"))).toBeVisible();
 });
@@ -81,7 +81,7 @@ test("efetivar um atrasado mantém a data e atualiza o saldo atual", async ({ pa
   await entrar(page);
   await page.goto("/lancamentos");
   await page.getByRole("button", { name: "Efetivar Luz atrasada" }).click();
-  await expect(page.locator("#hoje")).not.toContainText("Em atraso");
+  await expect(page.locator("#hoje")).not.toContainText("Pendente de confirmação");
 
   await page.goto("/");
   await expect(saldoTotal(page)).toHaveText(/R\$\s3\.950,00/);
@@ -89,6 +89,6 @@ test("efetivar um atrasado mantém a data e atualiza o saldo atual", async ({ pa
   // A data original foi mantida: o lançamento continua em "ontem" no histórico do mês.
   await page.goto(`/lancamentos?mes=${YESTERDAY.slice(0, 7)}`);
   await expect(page.locator("li", { hasText: "Luz atrasada" })).toContainText(
-    YESTERDAY.split("-").reverse().join("/"),
+    YESTERDAY.split("-").reverse().slice(0, 2).join("/"),
   );
 });

@@ -13,6 +13,12 @@ export const FREQUENCY_LABEL: Record<Frequency, string> = {
   anual: "Todo ano",
 };
 
+/** Quanto a recorrência pesa por mês, em média (semanal = 52/12 vezes, quinzenal = 26/12, anual = 1/12). */
+export function monthlyEquivalentCents(frequency: Frequency, amountCents: number): number {
+  const perYear = { semanal: 52, quinzenal: 26, mensal: 12, anual: 1 }[frequency];
+  return Math.round((amountCents * perYear) / 12);
+}
+
 export type RecurrenceRule = {
   frequency: Frequency;
   /** Primeira ocorrência (âncora do ciclo semanal/quinzenal e do mês de início). */

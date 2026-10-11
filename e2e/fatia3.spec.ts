@@ -24,7 +24,7 @@ async function entrar(page: Page) {
   await page.waitForURL((url) => url.pathname === "/");
 }
 
-const saldoTotal = (page: Page) => page.getByText("Saldo total", { exact: true }).locator("xpath=following-sibling::p[1]");
+const saldoTotal = (page: Page) => page.getByTestId("saldo-total");
 const emAberto = (page: Page) => page.getByRole("region", { name: "Contas em aberto" });
 const row = (page: Page, text: string) => page.locator("li", { hasText: text });
 const daySection = (page: Page, text: string) =>
@@ -46,13 +46,13 @@ test("criar recorrência mensal: entra na projeção e no painel, sem mexer no s
   // A ocorrência aparece no dia, marcada como recorrente, e o saldo do dia já a desconta
   // (3.950 - 100 da Internet - 1.500).
   const dia = daySection(page, "Aluguel teste");
-  await expect(dia.locator("header")).toContainText(/R\$\s2\.350,00/);
+  await expect(dia).toContainText(/R\$\s2\.350,00/);
   await expect(row(page, "Aluguel teste")).toContainText("↻");
 
   // No mês seguinte vem a próxima ocorrência (2.350 - 1.500).
   const proximo = addMonthsClamped(ALUGUEL, 1);
   await page.goto(`/lancamentos?mes=${month(proximo)}`);
-  await expect(daySection(page, "Aluguel teste").locator("header")).toContainText(/R\$\s850,00/);
+  await expect(daySection(page, "Aluguel teste")).toContainText(/R\$\s850,00/);
 
   await page.goto("/");
   await expect(saldoTotal(page)).toHaveText(/R\$\s3\.950,00/);
@@ -76,6 +76,8 @@ test("pular uma ocorrência só remove aquela", async ({ page }) => {
   await entrar(page);
   const proximo = addMonthsClamped(ALUGUEL, 1);
   await page.goto(`/lancamentos?mes=${month(proximo)}`);
+  await page.getByRole("button", { name: "Ações para Aluguel teste" }).click();
+  await page.getByRole("menuitem", { name: /Pular/ }).click();
   await page.getByRole("button", { name: "Pular Aluguel teste" }).click();
   await expect(row(page, "Aluguel teste")).toHaveCount(0);
 
@@ -107,7 +109,7 @@ test("editar uma ocorrência muda só ela", async ({ page }) => {
 test("alterar a recorrência a partir de uma ocorrência preserva as anteriores", async ({ page }) => {
   await entrar(page);
   await page.goto("/agenda");
-  await page.getByRole("link", { name: /Streaming teste/ }).click();
+  await page.getByRole("link", { name: /Streaming teste/ }).last().click();
   // Escolhe a segunda ocorrência (a do mês seguinte) como ponto de partida.
   await page.getByLabel("Alterar a partir de").selectOption(addMonthsClamped(STREAMING, 1));
   await page.getByLabel("Valor", { exact: true }).fill("70,00");
@@ -130,8 +132,8 @@ test("compra parcelada: cria as parcelas e permite cancelar o restante", async (
   await page.waitForURL(/lancamentos\?mes/);
 
   await page.goto("/agenda");
-  const card = page.getByRole("link", { name: /Notebook teste/ });
-  await expect(card).toContainText("0/6 pagas");
+  const card = page.getByRole("link", { name: /Notebook teste/ }).filter({ hasText: "Total Compra" });
+  await expect(card).toContainText("0 pagas · 6 restantes");
   await expect(card).toContainText(/R\$\s1\.800,00/);
 
   await card.click();
@@ -146,7 +148,7 @@ test("compra parcelada: cria as parcelas e permite cancelar o restante", async (
   await expect(saldoTotal(page)).toHaveText(/R\$\s2\.450,00/); // nada foi pago
 });
 
-test("quitar o restante efetiva as parcelas e muda o saldo atual", async ({ page }) => {
+test("antecipar as parcelas efetiva tudo hoje e muda o saldo atual", async ({ page }) => {
   await entrar(page);
   await page.goto("/lancamentos/novo?repeat=parcelado");
   await page.getByLabel("Valor informado").selectOption("total");
@@ -158,14 +160,14 @@ test("quitar o restante efetiva as parcelas e muda o saldo atual", async ({ page
   await page.waitForURL(/lancamentos\?mes/);
 
   await page.goto("/agenda");
-  await page.getByRole("link", { name: /Fone teste/ }).click();
+  await page.getByRole("link", { name: /Fone teste/ }).last().click();
   // 100,01 em 2x: a sobra de centavos fica na primeira parcela.
   await expect(row(page, "Fone teste").first()).toContainText(/R\$\s50,01/);
   await expect(row(page, "Fone teste").nth(1)).toContainText(/R\$\s50,00/);
 
-  page.once("dialog", (d) => d.accept());
-  await page.getByRole("button", { name: "Quitar o restante" }).click();
-  await expect(page.getByText("Quitar o restante")).toHaveCount(0);
+  // Parcelas e valor cobrado já vêm preenchidos com tudo que falta.
+  await page.getByRole("button", { name: "Antecipar parcelas" }).click();
+  await expect(page.getByRole("button", { name: "Antecipar parcelas" })).toHaveCount(0);
 
   await page.goto("/");
   await expect(saldoTotal(page)).toHaveText(/R\$\s2\.349,99/); // 2.450,00 - 100,01

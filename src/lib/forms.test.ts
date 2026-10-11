@@ -7,6 +7,7 @@ import {
   parseAccountForm,
   parseBudgetForm,
   parseCategoryForm,
+  parsePurchaseEditForm,
   parseRecurrenceEditForm,
   parseSeedForm,
   parseTransactionForm,
@@ -209,5 +210,28 @@ describe("parseBudgetForm", () => {
     expect(parseBudgetForm(fd({ ...base, limit: "abc" }))).toMatchObject({ ok: false, error: /limite/i });
     expect(parseBudgetForm(fd({ ...base, limit: "-5" }))).toMatchObject({ ok: false });
     expect(() => parseBudgetForm(fd({ ...base, month: "2026-13" }))).toThrow(InvalidRequestError);
+  });
+});
+
+describe("parsePurchaseEditForm", () => {
+  const edit = { purchaseId: "7", description: "Notebook", accountId: "1", categoryId: "", installments: "4", amount: "100,00", amountMode: "parcela", date: "2026-10-20", initialDate: "2026-10-20", initialAmountCents: "10000" };
+
+  it("só reaplica valor e data quando a pessoa os mudou", () => {
+    const r = parsePurchaseEditForm(fd(edit));
+    expect(r).toEqual({
+      ok: true,
+      data: { purchaseId: 7, description: "Notebook", accountId: 1, categoryId: null, installments: 4, firstDate: undefined, valueCents: undefined, mode: "parcela" },
+    });
+    const changed = parsePurchaseEditForm(fd({ ...edit, amount: "120,00", date: "2026-11-05" }));
+    expect(changed).toMatchObject({ ok: true, data: { firstDate: "2026-11-05", valueCents: 12000 } });
+  });
+
+  it("modo total sempre reaplica o valor", () => {
+    expect(parsePurchaseEditForm(fd({ ...edit, amountMode: "total" }))).toMatchObject({ ok: true, data: { valueCents: 10000, mode: "total" } });
+  });
+
+  it("rejeita nº de parcelas e valor inválidos", () => {
+    expect(parsePurchaseEditForm(fd({ ...edit, installments: "1" }))).toMatchObject({ ok: false });
+    expect(parsePurchaseEditForm(fd({ ...edit, amount: "0" }))).toMatchObject({ ok: false });
   });
 });

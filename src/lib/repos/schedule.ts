@@ -1,6 +1,6 @@
 import type { Db } from "../db/connection";
 import { listAccounts, isCard } from "./accounts";
-import { cardInvoices, listInvoicePayments, payInvoice, type PayInvoiceInput } from "./cards";
+import { cardInvoices, listInvoicePayments, payInvoice, settleDueCardOccurrences, type PayInvoiceInput } from "./cards";
 import { listWithOccurrences } from "./recurrences";
 import type { Transaction } from "./transactions";
 
@@ -9,6 +9,7 @@ import type { Transaction } from "./transactions";
  * pagamentos de fatura previstos. É a base da lista, do painel de contas em aberto e da projeção.
  */
 export function listSchedule(db: Db, to: string, today: string): Transaction[] {
+  settleDueCardOccurrences(db, today);
   const base = listWithOccurrences(db, to);
   return [...markCardOverdue(db, base, today), ...listInvoicePayments(db, base, to, today)];
 }

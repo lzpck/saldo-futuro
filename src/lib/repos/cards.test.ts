@@ -242,4 +242,35 @@ describe("pagar a fatura", () => {
     expect(() => pay()).toThrow(/Não há valor/);
     expect(() => payInvoice(db, base(), { cardId: bank, closingDate: "2026-10-25", today: TODAY })).toThrow(/Cartão não encontrado/);
   });
+
+  it("compra no cartão é efetivada desde o cadastro, mesmo pedindo Prevista e com a fatura em aberto", () => {
+    const buyId = buy("2026-10-10", 15_000, { status: "previsto" });
+    const nextBuyId = buy("2026-11-10", 25_000, { status: "previsto" });
+
+    expect(listTransactions(db).find((t) => t.id === buyId)).toMatchObject({ status: "efetivado", date: "2026-10-10" });
+    expect(listTransactions(db).find((t) => t.id === nextBuyId)).toMatchObject({ status: "efetivado", date: "2026-11-10" });
+
+    pay({ amountCents: 5_000 }); // pagamento parcial não muda o estado da compra
+    expect(listTransactions(db).find((t) => t.id === buyId)!.status).toBe("efetivado");
+  });
+
+  it("ao quitar a fatura, ocorrências virtuais de recorrência no ciclo são materializadas como efetivadas", () => {
+    createRecurrence(db, {
+      kind: "despesa",
+      description: "Spotify",
+      amountCents: 2_190,
+      accountId: card,
+      categoryId: null,
+      frequency: "mensal",
+      startDate: "2026-10-20",
+      endDate: null,
+    });
+
+    pay();
+
+    const recorded = listTransactions(db).find((t) => t.description === "Spotify")!;
+    expect(recorded).toBeDefined();
+    expect(recorded.status).toBe("efetivado");
+    expect(recorded.date).toBe("2026-10-20");
+  });
 });
