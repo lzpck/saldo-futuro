@@ -64,9 +64,11 @@ function Kpi({ title, icon, iconTone, value, valueTone, children, highlight = fa
 
 function PurchaseCard({ p }: { p: PurchaseSummary }) {
   const done = p.remainingCount === 0;
-  const settled = p.totalInstallments - p.remainingCount;
-  const pct = Math.round((p.paidCount / p.totalInstallments) * 100);
-  const current = Math.min(p.paidCount + 1, p.totalInstallments);
+  // Compra registrada já em andamento: só as parcelas lançadas (da inicial até a última) entram na barra.
+  const launched = p.totalInstallments - p.firstNo + 1;
+  const settled = launched - p.remainingCount;
+  const pct = Math.round((p.paidCount / launched) * 100);
+  const current = Math.min(p.firstNo + p.paidCount, p.totalInstallments);
   const segment = (i: number) => (i < p.paidCount ? "bg-primary" : p.onCard && i < p.postedCount ? "bg-primary/40" : "bg-surface-container-highest");
   return (
     <Link href={`/agenda/parcelamentos/${p.id}`} className={`block space-y-4 rounded-xl bg-surface-container p-5 shadow-md transition-colors hover:bg-surface-container-high ${done ? "opacity-70" : ""}`}>
@@ -114,9 +116,9 @@ function PurchaseCard({ p }: { p: PurchaseSummary }) {
           className="flex h-2 w-full gap-1 overflow-hidden rounded-full bg-surface-container-lowest"
           role="progressbar"
           aria-valuemin={0}
-          aria-valuemax={p.totalInstallments}
+          aria-valuemax={launched}
           aria-valuenow={p.paidCount}
-          aria-label={`${p.paidCount} de ${p.totalInstallments} parcelas pagas`}
+          aria-label={`${p.paidCount} de ${launched} parcelas pagas`}
         >
           {Array.from({ length: Math.max(settled, 0) + p.remainingCount }, (_, i) => (
             <div key={i} className={`h-full flex-1 rounded-full ${segment(i)}`} />

@@ -53,6 +53,72 @@ describe("resumo da compra parcelada", () => {
   });
 });
 
+describe("compra parcelada em andamento (parcela inicial)", () => {
+  const buyFrom = (firstNo: number, installments = 10, over: Partial<Parameters<typeof createInstallmentPurchase>[1]> = {}) =>
+    createInstallmentPurchase(db, {
+      description: "Geladeira",
+      installments,
+      firstNo,
+      firstDate: "2026-10-20",
+      accountId: bank,
+      categoryId: null,
+      mode: "parcela",
+      valueCents: 10_000,
+      firstPaid: false,
+      today: TODAY,
+      ...over,
+    });
+
+  it("cria só as parcelas da inicial até a última, numeradas pelo total original", () => {
+    const id = buyFrom(8);
+    expect(rows(id).map((t) => [t.installmentNo, t.date])).toEqual([
+      [8, "2026-10-20"],
+      [9, "2026-11-20"],
+      [10, "2026-12-20"],
+    ]);
+    expect(getPurchase(db, id)).toMatchObject({ totalInstallments: 10, firstNo: 8, remainingCount: 3, totalCents: 30_000 });
+  });
+
+  it("a parcela inicial pode ser a última", () => {
+    expect(rows(buyFrom(10))).toHaveLength(1);
+  });
+
+  it("rejeita parcela inicial fora de 1 até o total", () => {
+    expect(() => buyFrom(0)).toThrow(/parcela inicial/i);
+    expect(() => buyFrom(11)).toThrow(/parcela inicial/i);
+    expect(() => buyFrom(1.5)).toThrow(/parcela inicial/i);
+  });
+
+  it("com parcela inicial maior que 1 não aceita o valor total da compra", () => {
+    expect(() => buyFrom(8, 10, { mode: "total", valueCents: 30_000 })).toThrow(/total/i);
+  });
+
+  it("no cartão todas nascem efetivadas e a edição mantém a numeração", () => {
+    const card = createAccount(db, { name: "Visa", kind: "cartao", initialBalanceCents: 0, closingDay: 5, dueDay: 12, payAccountId: bank });
+    const id = buyFrom(8, 10, { accountId: card });
+    expect(rows(id).map((t) => [t.installmentNo, t.status])).toEqual([
+      [8, "efetivado"],
+      [9, "efetivado"],
+      [10, "efetivado"],
+    ]);
+    updatePurchase(db, id, edit({ description: "Geladeira nova", installments: 10, accountId: card }), TODAY);
+    expect(rows(id).map((t) => t.installmentNo)).toEqual([8, 9, 10]);
+  });
+
+  it("a parcela inicial é gravada: excluir a 1ª parcela não a desloca", () => {
+    const id = buyFrom(8);
+    db.prepare("DELETE FROM transactions WHERE purchase_id = ? AND installment_no = 8").run(id);
+    expect(getPurchase(db, id)).toMatchObject({ firstNo: 8, remainingCount: 2 });
+  });
+
+  it("na edição, não deixa o nº de parcelas ficar abaixo da inicial nem usar o valor total", () => {
+    const id = buyFrom(8);
+    expect(() => updatePurchase(db, id, edit({ installments: 5 }), TODAY)).toThrow(/parcela inicial/i);
+    expect(() => updatePurchase(db, id, edit({ installments: 10, valueCents: 30_000, mode: "total" }), TODAY)).toThrow(/valor de cada parcela/i);
+    expect(rows(id)).toHaveLength(3);
+  });
+});
+
 describe("excluir compra parcelada", () => {
   it("apaga todas as parcelas, inclusive as efetivadas, e o registro da compra", () => {
     const id = buy(4, true);

@@ -114,7 +114,7 @@ export function parseSeedForm(fd: FormData) {
 export type RepeatSpec =
   | { type: "none" }
   | { type: "recorrente"; frequency: Frequency; endDate: string | null; isVariable: boolean; historySeed: HistorySeedEntry[] }
-  | { type: "parcelado"; installments: number; mode: "parcela" | "total" };
+  | { type: "parcelado"; installments: number; firstNo: number; mode: "parcela" | "total" };
 
 export function parseTransactionForm(
   fd: FormData,
@@ -193,8 +193,14 @@ function parseRepeat(
     if (!Number.isInteger(installments) || installments < 2 || installments > MAX_INSTALLMENTS) {
       return { ok: false, error: `Informe de 2 a ${MAX_INSTALLMENTS} parcelas.` };
     }
-    const mode = text(fd.get("amountMode")) === "total" ? "total" : "parcela";
-    return { ok: true, repeat: { type: "parcelado", installments, mode } };
+    const rawFirstNo = text(fd.get("firstNo"));
+    const firstNo = rawFirstNo === "" ? 1 : Number(rawFirstNo);
+    if (!Number.isInteger(firstNo) || firstNo < 1 || firstNo > installments) {
+      return { ok: false, error: `A parcela inicial deve ficar entre 1 e ${installments}.` };
+    }
+    // Sem as parcelas anteriores, "total da compra" não tem como ser dividido: só vale o valor de cada parcela.
+    const mode = firstNo === 1 && text(fd.get("amountMode")) === "total" ? "total" : "parcela";
+    return { ok: true, repeat: { type: "parcelado", installments, firstNo, mode } };
   }
 
   return { ok: false, error: "Opção de repetição inválida." };

@@ -79,6 +79,18 @@ describe("parseTransactionForm — repetição", () => {
     }
   });
 
+  it("parcelado em andamento: parcela inicial de 1 até o total, e sem modo total", () => {
+    const base = { ...valid, repeat: "parcelado", installments: "10" };
+    expect(parseTransactionForm(fd(base))).toMatchObject({ repeat: { firstNo: 1 } });
+    expect(parseTransactionForm(fd({ ...base, firstNo: "8", amountMode: "total" }))).toMatchObject({
+      ok: true,
+      repeat: { installments: 10, firstNo: 8, mode: "parcela" },
+    });
+    for (const bad of ["0", "11", "2.5", "abc"]) {
+      expect(parseTransactionForm(fd({ ...base, firstNo: bad }))).toMatchObject({ ok: false, error: /parcela inicial/ });
+    }
+  });
+
   it("só despesa parcela, e transferência não repete", () => {
     expect(parseTransactionForm(fd({ ...valid, kind: "receita", repeat: "parcelado", installments: "3" }))).toMatchObject({ ok: false, error: /despesas/ });
     expect(parseTransactionForm(fd({ ...valid, kind: "transferencia", toAccountId: "2", repeat: "recorrente", frequency: "mensal" }))).toMatchObject({ ok: false, error: /Transferências/ });

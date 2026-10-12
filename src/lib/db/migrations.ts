@@ -195,6 +195,10 @@ const MIGRATIONS: Migration[] = [
       ALTER TABLE accounts ADD COLUMN reconciled_at TEXT;
     `);
   },
+  // Compra parcelada em andamento: nº da primeira parcela lançada (as anteriores foram pagas antes do app).
+  (db) => {
+    db.exec(`ALTER TABLE installment_purchases ADD COLUMN first_no INTEGER NOT NULL DEFAULT 1 CHECK (first_no >= 1);`);
+  },
 ];
 
 export function migrate(db: Database.Database): void {

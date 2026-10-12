@@ -58,6 +58,7 @@ export function TransactionForm({
   const [repeat, setRepeat] = useState<Repeat>(initialRepeat);
   const [isVariable, setIsVariable] = useState(false);
   const [amountMode, setAmountMode] = useState<"parcela" | "total">("parcela");
+  const [firstNo, setFirstNo] = useState(1);
   const [accountId, setAccountId] = useState<number>(
     existing?.accountId ?? initialAccountId ?? defaultAccountId(accounts) ?? 0,
   );
@@ -97,9 +98,9 @@ export function TransactionForm({
   const variable = activeRepeat === "recorrente" && isVariable;
   const amountLabel =
     activeRepeat === "parcelado"
-      ? amountMode === "total" ? "Valor total da compra" : "Valor de cada parcela"
+      ? amountMode === "total" && firstNo === 1 ? "Valor total da compra" : "Valor de cada parcela"
       : variable ? "Valor estimado (usado até haver histórico)" : "Valor";
-  const dateLabel = activeRepeat === "parcelado" ? "Vencimento da 1ª parcela" : activeRepeat === "recorrente" ? "Primeira data" : "Data";
+  const dateLabel = activeRepeat === "parcelado" ? (firstNo > 1 ? `Vencimento da ${firstNo}ª parcela` : "Vencimento da 1ª parcela") : activeRepeat === "recorrente" ? "Primeira data" : "Data";
 
   return (
     <form action={action} className="card space-y-4">
@@ -291,18 +292,46 @@ export function TransactionForm({
           )}
 
           {activeRepeat === "parcelado" && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label htmlFor="installments" className="label">Nº de parcelas</label>
                 <input id="installments" name="installments" type="number" min={2} max={120} defaultValue={6} required className="input" />
               </div>
               <div>
+                <label htmlFor="firstNo" className="label">Parcela inicial</label>
+                <input
+                  id="firstNo"
+                  name="firstNo"
+                  type="number"
+                  min={1}
+                  max={120}
+                  defaultValue={1}
+                  onChange={(e) => {
+                    const no = Number(e.target.value) || 1;
+                    setFirstNo(no);
+                    if (no > 1) setAmountMode("parcela");
+                  }}
+                  className="input"
+                />
+              </div>
+              <div>
                 <label htmlFor="amountMode" className="label">Valor informado</label>
-                <select id="amountMode" name="amountMode" value={amountMode} onChange={(e) => setAmountMode(e.target.value as "parcela" | "total")} className="input">
+                <select
+                  id="amountMode"
+                  name="amountMode"
+                  value={firstNo > 1 ? "parcela" : amountMode}
+                  onChange={(e) => setAmountMode(e.target.value as "parcela" | "total")}
+                  className="input"
+                >
                   <option value="parcela">Por parcela</option>
-                  <option value="total">Total da compra</option>
+                  {firstNo === 1 && <option value="total">Total da compra</option>}
                 </select>
               </div>
+              {firstNo > 1 && (
+                <p className="col-span-3 text-xs text-muted">
+                  Compra em andamento: só as parcelas da {firstNo}ª em diante serão lançadas, a partir da data informada.
+                </p>
+              )}
             </div>
           )}
         </div>

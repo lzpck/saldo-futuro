@@ -148,6 +148,30 @@ test("compra parcelada: cria as parcelas e permite cancelar o restante", async (
   await expect(saldoTotal(page)).toHaveText(/R\$\s2\.450,00/); // nada foi pago
 });
 
+test("compra parcelada em andamento: lança só da parcela inicial até a última", async ({ page }) => {
+  await entrar(page);
+  await page.goto("/lancamentos/novo?repeat=parcelado");
+  await page.getByLabel("Nº de parcelas").fill("10");
+  await page.getByLabel("Parcela inicial").fill("8");
+  await expect(page.getByLabel("Valor informado")).toHaveValue("parcela");
+  await page.getByLabel("Valor de cada parcela").fill("120,00");
+  await page.getByLabel("Descrição").fill("Geladeira teste");
+  await page.getByLabel("Vencimento da 8ª parcela").fill(offset(5));
+  await page.getByRole("button", { name: "Criar compra parcelada" }).click();
+  await page.waitForURL(/lancamentos\?mes/);
+
+  await page.goto("/agenda");
+  const card = page.getByRole("link", { name: /Geladeira teste/ }).filter({ hasText: "Total Compra" });
+  await expect(card).toContainText("Parcela 8 de 10");
+  await expect(card).toContainText("0 pagas · 3 restantes");
+  await expect(card).toContainText(/R\$\s360,00/);
+
+  await card.click();
+  await expect(row(page, "Geladeira teste")).toHaveCount(3);
+  await expect(row(page, "Geladeira teste").first()).toContainText("8/10");
+  await expect(row(page, "Geladeira teste").last()).toContainText("10/10");
+});
+
 test("antecipar as parcelas efetiva tudo hoje e muda o saldo atual", async ({ page }) => {
   await entrar(page);
   await page.goto("/lancamentos/novo?repeat=parcelado");

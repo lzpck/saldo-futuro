@@ -30,7 +30,7 @@ export default async function PurchasePage({ params }: PageProps<"/agenda/parcel
         <div>
           <h1 className="text-2xl font-semibold">{purchase.description}</h1>
           <p className="mt-1 text-sm text-muted">
-            {purchase.totalInstallments}x · {purchase.accountName}
+            {purchase.firstNo > 1 ? `parcelas ${purchase.firstNo} a ${purchase.totalInstallments} de ${purchase.totalInstallments}` : `${purchase.totalInstallments}x`} · {purchase.accountName}
             {purchase.categoryName && ` · ${purchase.categoryName}`}
           </p>
         </div>

@@ -12,7 +12,9 @@ export const MAX_INSTALLMENTS = 120;
 export type InstallmentInput = {
   description: string;
   installments: number;
-  /** Vencimento da primeira parcela; as demais caem nos meses seguintes, no mesmo dia. */
+  /** Parcela inicial: nº da primeira parcela lançada (padrão 1). As anteriores foram pagas antes do app e não são criadas. */
+  firstNo?: number;
+  /** Vencimento da primeira parcela lançada; as demais caem nos meses seguintes, no mesmo dia. */
   firstDate: string;
   accountId: number;
   categoryId: number | null;
@@ -36,16 +38,20 @@ export function createInstallmentPurchase(db: Db, input: InstallmentInput): numb
     if (!category) throw new Error("Categoria não encontrada.");
     if (category.kind !== "despesa") throw new Error(`A categoria "${category.name}" não é de despesa.`);
   }
-  if (input.mode === "total" && input.valueCents < n) throw new Error("O total é menor que o número de parcelas.");
+  const firstNo = input.firstNo ?? 1;
+  if (!Number.isInteger(firstNo) || firstNo < 1 || firstNo > n) throw new Error(`A parcela inicial deve ficar entre 1 e ${n}.`);
+  if (firstNo > 1 && input.mode === "total") throw new Error("Com parcela inicial maior que 1, informe o valor de cada parcela, não o total.");
+  const count = n - firstNo + 1;
+  if (input.mode === "total" && input.valueCents < count) throw new Error("O total é menor que o número de parcelas.");
 
-  const amounts = input.mode === "total" ? splitInstallments(input.valueCents, n) : Array<number>(n).fill(input.valueCents);
+  const amounts = input.mode === "total" ? splitInstallments(input.valueCents, count) : Array<number>(count).fill(input.valueCents);
 
   return db.transaction(() => {
     const { lastInsertRowid } = db
       .prepare(
-        "INSERT INTO installment_purchases (description, total_installments, account_id, category_id) VALUES (?, ?, ?, ?)",
+        "INSERT INTO installment_purchases (description, total_installments, first_no, account_id, category_id) VALUES (?, ?, ?, ?, ?)",
       )
-      .run(input.description, n, input.accountId, input.categoryId);
+      .run(input.description, n, firstNo, input.accountId, input.categoryId);
     const purchaseId = Number(lastInsertRowid);
 
     amounts.forEach((amountCents, i) => {
@@ -60,7 +66,7 @@ export function createInstallmentPurchase(db: Db, input: InstallmentInput): numb
         accountId: input.accountId,
         categoryId: input.categoryId,
         purchaseId,
-        installmentNo: i + 1,
+        installmentNo: firstNo + i,
       });
     });
     return purchaseId;
@@ -71,6 +77,8 @@ export type PurchaseSummary = {
   id: number;
   description: string;
   totalInstallments: number;
+  /** Nº da primeira parcela lançada (maior que 1 quando a compra foi registrada já em andamento). */
+  firstNo: number;
   accountId: number;
   categoryId: number | null;
   accountName: string;
@@ -96,6 +104,7 @@ type SummaryRow = {
   id: number;
   description: string;
   total_installments: number;
+  first_no: number;
   account_id: number;
   category_id: number | null;
   account_name: string;
@@ -112,7 +121,7 @@ type SummaryRow = {
 };
 
 const SUMMARY_SQL = `
-  SELECT p.id, p.description, p.total_installments, p.account_id, p.category_id, a.name AS account_name, c.name AS category_name, c.icon AS category_icon,
+  SELECT p.id, p.description, p.total_installments, p.first_no, p.account_id, p.category_id, a.name AS account_name, c.name AS category_name, c.icon AS category_icon,
     (SELECT COUNT(*) FROM transactions t WHERE t.purchase_id = p.id AND t.status = 'efetivado') AS paid_count,
     (SELECT COUNT(*) FROM transactions t WHERE t.purchase_id = p.id AND t.status = 'previsto') AS remaining_count,
     COALESCE((SELECT SUM(t.amount_cents) FROM transactions t WHERE t.purchase_id = p.id AND t.status = 'previsto'), 0) AS remaining_cents,
@@ -131,6 +140,7 @@ const toSummary = (db: Db, r: SummaryRow, today: string): PurchaseSummary => {
     id: r.id,
     description: r.description,
     totalInstallments: r.total_installments,
+    firstNo: r.first_no,
     accountId: r.account_id,
     categoryId: r.category_id,
     accountName: r.account_name,
@@ -301,10 +311,14 @@ export function updatePurchase(db: Db, purchaseId: number, input: PurchaseEdit, 
   }
 
   db.transaction(() => {
-    const purchase = db.prepare("SELECT account_id, total_installments FROM installment_purchases WHERE id = ?").get(purchaseId) as
-      | { account_id: number; total_installments: number }
+    const purchase = db.prepare("SELECT account_id, total_installments, first_no FROM installment_purchases WHERE id = ?").get(purchaseId) as
+      | { account_id: number; total_installments: number; first_no: number }
       | undefined;
     if (!purchase) throw new Error("Compra não encontrada.");
+    if (n < purchase.first_no) throw new Error(`O número de parcelas não pode ser menor que a parcela inicial (${purchase.first_no}ª).`);
+    if (purchase.first_no > 1 && input.mode === "total") {
+      throw new Error("Compra em andamento: informe o valor de cada parcela, não o total.");
+    }
 
     const rows = installmentRows(db, purchaseId, today);
     const paid = rows.filter((r) => !r.remaining);

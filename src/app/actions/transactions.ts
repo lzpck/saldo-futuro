@@ -59,6 +59,7 @@ export async function saveTransaction(_: FormState, fd: FormData): Promise<FormS
       createInstallmentPurchase(db, {
         description: data.description,
         installments: repeat.installments,
+        firstNo: repeat.firstNo,
         firstDate: data.date,
         accountId: data.accountId,
         categoryId: data.categoryId ?? null,

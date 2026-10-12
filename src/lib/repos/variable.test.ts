@@ -318,11 +318,12 @@ describe("migração", () => {
       ALTER TABLE accounts DROP COLUMN favorite;
       ALTER TABLE accounts DROP COLUMN credit_limit_cents;
       ALTER TABLE accounts DROP COLUMN reconciled_at;
+      ALTER TABLE installment_purchases DROP COLUMN first_no;
     `);
     db.pragma("user_version = 3");
     migrate(db);
 
-    expect(db.pragma("user_version", { simple: true })).toBe(9);
+    expect(db.pragma("user_version", { simple: true })).toBe(10);
     expect(getRecurrence(db, id)).toMatchObject({ seriesId: id, isVariable: false, description: "Luz" });
     expect(getRecurrence(db, tx)).toMatchObject({ seriesId: tx, isVariable: false, amountCents: 150_000 });
     expect(listTransactions(db)).toHaveLength(1);
