@@ -264,6 +264,8 @@ export default function AccountsPage() {
         </div>
       </section>
 
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+      <div className="space-y-6 lg:col-span-7">
       <Section
         title="Contas correntes"
         hint="Dinheiro disponível: compõe o Saldo total e a Projeção."
@@ -344,6 +346,8 @@ export default function AccountsPage() {
         </ul>
       </Section>
 
+      </div>
+      <div className="space-y-6 lg:col-span-5">
       <Section
         title="Cartões de crédito"
         hint={
@@ -427,6 +431,8 @@ export default function AccountsPage() {
           </ul>
         </details>
       )}
+      </div>
+      </div>
     </PageShell>
   );
 }
