@@ -3,13 +3,16 @@
 import { useActionState, useState } from "react";
 import { saveCategory } from "@/app/actions/categories";
 import type { Category } from "@/lib/repos/categories";
+import { ModalField, useCloseOnDone } from "@/components/modal";
 
 export function CategoryForm({ existing, parents }: { existing?: Category; parents: Category[] }) {
   const [state, action, pending] = useActionState(saveCategory, undefined);
+  useCloseOnDone(state?.done);
   const [kind, setKind] = useState(existing?.kind ?? "despesa");
 
   return (
     <form action={action} className="card space-y-4">
+      <ModalField />
       {existing && <input type="hidden" name="id" value={existing.id} />}
       {existing && <input type="hidden" name="kind" value={existing.kind} />}
 

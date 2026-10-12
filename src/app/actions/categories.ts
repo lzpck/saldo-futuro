@@ -21,6 +21,7 @@ export async function saveCategory(_: FormState, fd: FormData): Promise<FormStat
   }
 
   refreshAll();
+  if (fd.get("modal")) return { done: true };
   redirect("/categorias");
 }
 
