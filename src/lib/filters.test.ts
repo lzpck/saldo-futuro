@@ -100,6 +100,27 @@ describe("filterTransactions", () => {
     expect(run([r, d], { tipo: "receita" })).toEqual([r.id]);
   });
 
+  it("tipo entrada/saída lista o que compõe os totais de caixa", () => {
+    const cash = { scope: new Set([1]), cardIds: new Set([9]) };
+    const salario = tx({ date: "2026-10-01", amountCents: 1, kind: "receita" });
+    const beneficio = tx({ date: "2026-10-01", amountCents: 1, kind: "receita", accountId: 2 });
+    const mercado = tx({ date: "2026-10-01", amountCents: 1 });
+    const mercadoBeneficio = tx({ date: "2026-10-01", amountCents: 1, accountId: 2 });
+    const compraCartao = tx({ date: "2026-10-01", amountCents: 1, accountId: 9 });
+    const fatura = tx({ date: "2026-10-01", amountCents: 1, kind: "transferencia", accountId: 1, toAccountId: 9 });
+    const guardado = tx({ date: "2026-10-01", amountCents: 1, kind: "transferencia", accountId: 1, toAccountId: 4 });
+    const all = [salario, beneficio, mercado, mercadoBeneficio, compraCartao, fatura, guardado];
+    const by = (tipo: string) => new Set(filterTransactions(all, parseFilters({ tipo }), cats, TODAY, cash).map((t) => t.id));
+    expect(by("entrada")).toEqual(new Set([salario.id]));
+    expect(by("saida")).toEqual(new Set([mercado.id, fatura.id]));
+    expect(by("despesa")).toEqual(new Set([mercado.id, mercadoBeneficio.id, compraCartao.id]));
+  });
+
+  it("tipo entrada/saída lido da query string", () => {
+    expect(parseFilters({ tipo: "saida" }).kind).toBe("saida");
+    expect(parseFilters({ tipo: "entrada" }).kind).toBe("entrada");
+  });
+
   it("situação: previsto, efetivado e em atraso", () => {
     const done = tx({ date: "2026-10-01", amountCents: 1 });
     const late = tx({ date: "2026-10-10", amountCents: 1, status: "previsto" });

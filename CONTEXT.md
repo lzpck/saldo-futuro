@@ -124,6 +124,23 @@ Cada Lançamento de uma Compra parcelada (Previsto fora do cartão, Efetivado no
 **Saldo de fim de dia**:
 Saldo total depois de todos os Lançamentos do dia; é o valor mostrado em cada dia da lista. Hoje divide a lista entre Efetivado (acima) e projetado (abaixo).
 
+**Entradas**:
+Receitas do mês nas Contas que compõem o Saldo total (ou na Conta escolhida no filtro), Efetivadas e Previstas. Receita numa Caixinha ou Benefício só entra quando a lista é filtrada por essa Conta.
+
+**Saídas**:
+O que sai do caixa no mês, nas mesmas Contas das Entradas: Despesas mais Faturas no vencimento. Compra no cartão não é Saída: ela só sai do caixa na Fatura, e contá-la nos dois lugares dobraria o gasto. A Fatura aberta não entra (é informativa).
+_Evitar_: total de despesas (a Fatura não é Despesa)
+
+**Movimento fora do saldo**:
+Transferência do mês que tira dinheiro do Saldo total ou o devolve (aplicar numa Caixinha, transferir para o Benefício, resgatar). Não é Entrada nem Saída: aparece à parte, só quando há valor, para que o Saldo ao fim do mês continue fechando.
+
+**Resultado do mês**:
+Entradas menos Saídas do mês, somando o Efetivado e o Previsto, com o Efetivado até agora destacado. Saldo de abertura do mês mais Resultado do mês (e Movimento fora do saldo) é o Saldo previsto ao fim do mês. Num mês futuro é previsão: Superávit ou Déficit previsto.
+_Evitar_: resultado operacional
+
+**Variação da semana**:
+Saldo de fim de dia no fim da semana menos o da semana anterior, mostrada como subtotal da semana. Com filtro ativo, que esconde o saldo, é a soma dos Lançamentos listados, com as Faturas dentro e as compras no cartão fora.
+
 **Categoria**:
 Classificação de uma Despesa ou Receita, com cor e ícone. Pode ter um nível de Subcategoria.
 

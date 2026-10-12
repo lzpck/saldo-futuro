@@ -1,5 +1,6 @@
 import { isISODate, isYearMonth } from "./dates";
 import { centsToInput, parseBRL } from "./money";
+import { classifyFlow, type FlowContext } from "./month-flow";
 import { isOverdue } from "./projection";
 
 // Filtros da lista de lançamentos (ticket 06c). Puro: lê a query string, filtra, totaliza e pagina.
@@ -10,7 +11,8 @@ export type Filters = {
   /** Mês da visão do mês ("YYYY-MM"); null = mês atual. */
   month: string | null;
   text: string;
-  kind: "receita" | "despesa" | "transferencia" | null;
+  /** "entrada" e "saida" são o que compõe os totais de caixa da visão do mês (ver month-flow). */
+  kind: "receita" | "despesa" | "transferencia" | "entrada" | "saida" | null;
   status: "previsto" | "efetivado" | "atrasado" | null;
   minCents: number | null;
   maxCents: number | null;
@@ -77,7 +79,7 @@ export function parseFilters(q: Query): Filters {
   return {
     month: isYearMonth(month) ? month : null,
     text: first(q, "q"),
-    kind: oneOf(first(q, "tipo"), ["receita", "despesa", "transferencia"]),
+    kind: oneOf(first(q, "tipo"), ["receita", "despesa", "transferencia", "entrada", "saida"]),
     status: oneOf(first(q, "situacao"), ["previsto", "efetivado", "atrasado"]),
     minCents,
     maxCents,
@@ -113,12 +115,13 @@ export function normalizeText(s: string): string {
   return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
-/** Filtra e ordena por data decrescente (mais novo primeiro). */
+/** Filtra e ordena por data decrescente (mais novo primeiro). `cash` define o escopo de "entrada" e "saída". */
 export function filterTransactions<T extends FilterableTx>(
   txs: T[],
   f: Filters,
   categories: { id: number; parentId: number | null }[],
   today: string,
+  cash?: FlowContext,
 ): T[] {
   const needle = normalizeText(f.text);
   // Filtrar por uma categoria principal inclui as subcategorias dela (é o que o relatório soma).
@@ -129,7 +132,9 @@ export function filterTransactions<T extends FilterableTx>(
   return txs
     .filter((t) => {
       if (needle && !normalizeText(t.description).includes(needle)) return false;
-      if (f.kind && t.kind !== f.kind) return false;
+      if (f.kind === "entrada" || f.kind === "saida") {
+        if (!cash || classifyFlow(t, cash)?.bucket !== f.kind) return false;
+      } else if (f.kind && t.kind !== f.kind) return false;
       if (f.status === "atrasado" ? !isOverdue(t, today) : f.status && t.status !== f.status) return false;
       if (f.minCents !== null && t.amountCents < f.minCents) return false;
       if (f.maxCents !== null && t.amountCents > f.maxCents) return false;

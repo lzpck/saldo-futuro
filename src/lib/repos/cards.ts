@@ -106,68 +106,6 @@ export function listInvoicePayments(db: Db, base: Transaction[], to: string, tod
   return result;
 }
 
-/** Sem filtro de conta vale tudo; com ele, só o cartão e a conta que o paga. */
-function isInScope(c: CardWithTerms, accountId: number | undefined): boolean {
-  return accountId === undefined || accountId === c.id || accountId === c.payAccountId;
-}
-
-export type DueInvoice = {
-  cardId: number;
-  cardName: string;
-  dueDate: string;
-  /** O que falta pagar da Fatura (já descontados os pagamentos). */
-  remainingCents: number;
-  overdue: boolean;
-};
-
-/**
- * Faturas com saldo a pagar que vencem no mês `[from, to]`. No mês corrente entram também as vencidas
- * e ainda não pagas. Com `accountId`, só as do cartão ou da conta que o paga.
- */
-export function invoicesDueInMonth(
-  db: Db,
-  base: Transaction[],
-  { from, to }: { from: string; to: string },
-  today: string,
-  accountId?: number,
-): DueInvoice[] {
-  const includeOverdue = today >= from && today <= to;
-  const result: DueInvoice[] = [];
-  for (const card of listAccounts(db).filter(isCard)) {
-    const c = asCard(card);
-    if (!isInScope(c, accountId)) continue;
-    for (const inv of cardInvoices(db, card, base, today)) {
-      if (inv.remainingCents <= 0 || inv.dueDate > to) continue;
-      const overdue = inv.dueDate < today;
-      if (inv.dueDate < from && !(includeOverdue && overdue)) continue;
-      result.push({ cardId: c.id, cardName: c.name, dueDate: inv.dueDate, remainingCents: inv.remainingCents, overdue });
-    }
-  }
-  return result.sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.cardName.localeCompare(b.cardName));
-}
-
-export type OpenInvoice = {
-  cardId: number;
-  cardName: string;
-  closingDate: string;
-  dueDate: string;
-  totalCents: number;
-};
-
-/** Fatura aberta de cada cartão: o ciclo de hoje, que ainda não fechou e só sai do caixa no vencimento. */
-export function openInvoices(db: Db, base: Transaction[], today: string, accountId?: number): OpenInvoice[] {
-  const result: OpenInvoice[] = [];
-  for (const card of listAccounts(db).filter(isCard)) {
-    const c = asCard(card);
-    if (!isInScope(c, accountId)) continue;
-    const closing = closingDateFor(today, c.closingDay);
-    const inv = cardInvoices(db, card, base, today).find((i) => i.closingDate === closing);
-    if (!inv || inv.remainingCents <= 0) continue;
-    result.push({ cardId: c.id, cardName: c.name, closingDate: inv.closingDate, dueDate: inv.dueDate, totalCents: inv.remainingCents });
-  }
-  return result;
-}
-
 export type PayInvoiceInput = {
   cardId: number;
   closingDate: string;

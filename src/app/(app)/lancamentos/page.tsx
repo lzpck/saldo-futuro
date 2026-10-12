@@ -17,11 +17,10 @@ import {
   summarize,
 } from "@/lib/filters";
 import { centsToInput } from "@/lib/money";
-import { dailyBalances, groupByDay, isOverdue, lowestBalance, type DayBalance } from "@/lib/projection";
-import { isSpendable, listAccounts } from "@/lib/repos/accounts";
+import { listedFlowCents, monthFlow } from "@/lib/month-flow";
+import { addDays, dailyBalances, effectiveDate, groupByDay, isOverdue, lowestBalance, openingBalance, type DayBalance } from "@/lib/projection";
+import { isCard, isSpendable, listAccounts } from "@/lib/repos/accounts";
 import { listCategories } from "@/lib/repos/categories";
-import { invoicesDueInMonth, openInvoices } from "@/lib/repos/cards";
-import { listWithOccurrences } from "@/lib/repos/recurrences";
 import { listSchedule } from "@/lib/repos/schedule";
 import type { Transaction } from "@/lib/repos/transactions";
 import { AccountOptions } from "@/components/account-options";
@@ -30,17 +29,6 @@ import { MoneyInput } from "@/components/money-input";
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-
-function totals(items: Transaction[], kind: "receita" | "despesa") {
-  const mine = items.filter((t) => t.kind === kind);
-  const sum = (status: Transaction["status"]) =>
-    mine.filter((t) => t.status === status).reduce((s, t) => s + t.amountCents, 0);
-  // Compra prevista no cartão só vira saída de caixa na Fatura; contá-la aqui e na Fatura dobraria o gasto.
-  const onCard = mine
-    .filter((t) => t.status === "previsto" && t.accountKind === "cartao" && t.invoiceCardId === null)
-    .reduce((s, t) => s + t.amountCents, 0);
-  return { done: sum("efetivado"), planned: sum("previsto") - onCard, onCard };
-}
 
 export default async function TransactionsPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
@@ -62,7 +50,8 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   const searchTo = filters.to ?? (filters.includePlanned ? monthBounds(shiftMonth(today.slice(0, 7), 12)).to : today);
   // Visão do mês: todo o histórico até o fim do mês, porque a projeção precisa dele para o saldo de abertura.
   const history = listSchedule(db, searching ? searchTo : to, today);
-  const listed = filterTransactions(history, searching ? filters : { ...filters, from: null, to: null }, categories, today);
+  const cash = { scope: new Set(scope.map((a) => a.id)), cardIds: new Set(allAccounts.filter(isCard).map((a) => a.id)) };
+  const listed = filterTransactions(history, searching ? filters : { ...filters, from: null, to: null }, categories, today, cash);
 
   const search = searching ? paginate(listed, filters.page) : null;
   const searchTotals = searching ? summarize(listed) : null;
@@ -82,6 +71,8 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
 
   // Só o filtro de conta mantém o saldo: qualquer outro deixa a lista de ser o fluxo todo.
   const showBalance = !searching && !filters.categoryId && !filters.kind && !filters.status && filters.includePlanned;
+  const accountsInScope = scope.map((a) => ({ id: a.id, initialBalanceCents: a.initialBalanceCents }));
+  const openingCents = showBalance ? openingBalance({ accounts: accountsInScope, transactions: history, today, from }) : 0;
   const days: DayBalance[] = showBalance
     ? dailyBalances({
         accounts: scope.map((a) => ({ id: a.id, initialBalanceCents: a.initialBalanceCents })),
@@ -96,17 +87,23 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
 
   const projected = days.filter((d) => d.phase !== "real");
   const low = lowestBalance(projected.length ? projected : days);
+  // Sem queda no mês, o menor ponto é só o saldo de abertura, e não uma data de aperto.
+  const lowIsOpening = low !== undefined && !todayInMonth && low.endBalanceCents === openingCents;
   const endOfMonth = days.at(-1);
 
   const monthItems = listed.filter((t) => t.date >= from && t.date <= to);
-  const income = totals(monthItems, "receita");
-  const expense = totals(monthItems, "despesa");
-  // Faturas saem do caixa no vencimento: entram nas saídas previstas. A aberta é só informativa (ADR 0003).
-  const cardBase = showBalance ? listWithOccurrences(db, to) : [];
-  const dueInvoices = showBalance ? invoicesDueInMonth(db, cardBase, { from, to }, today, accountId) : [];
-  const openCycle = showBalance && todayInMonth ? openInvoices(db, cardBase, today, accountId) : [];
-  const invoicesCents = dueInvoices.reduce((s, i) => s + i.remainingCents, 0);
-  const plannedOut = expense.planned + invoicesCents;
+  // Todos os cards usam a régua de caixa e o escopo do saldo (ADR 0005): fecham entre si e com o saldo.
+  const { entradas, saidas, foraDoSaldo, resultado } = monthFlow({ transactions: listed, today, from, to, ...cash });
+  const outsideCents = foraDoSaldo.done + foraDoSaldo.planned;
+  const resultCents = resultado.done + resultado.planned;
+  const futureMonth = month > today.slice(0, 7);
+  // Só compra de cartão fora do escopo: filtrando pelo próprio cartão, ela já é Saída e não "sai na fatura".
+  const cardPurchasesCents = listed
+    .filter((t) => {
+      const day = effectiveDate(t, today);
+      return t.kind === "despesa" && cash.cardIds.has(t.accountId) && !cash.scope.has(t.accountId) && day >= from && day <= to;
+    })
+    .reduce((sum, t) => sum + t.amountCents, 0);
 
   const onlyFuture = first(sp.futuros) === "1";
   const hideTransfers = first(sp.semtransf) === "1";
@@ -135,7 +132,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
     filters.maxCents !== null || filters.from !== null || filters.to !== null || !filters.includePlanned;
   const accountLink = (id: number | null) => build({ accountId: id });
   const overdueLink = build({ status: filters.status === "atrasado" ? null : "atrasado" });
-  const kindLink = (k: "receita" | "despesa") => build({ kind: filters.kind === k ? null : k });
+  const kindLink = (k: "entrada" | "saida") => build({ kind: filters.kind === k ? null : k });
   const semCatLink = build({}, { semcat: !semCategoria });
   // Categorias mais usadas no mês, como atalho de filtro.
   const catCount = new Map<number, number>();
@@ -164,7 +161,6 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
     }
     w.days.push(g);
   }
-  const flowOf = (t: Transaction) => (t.kind === "despesa" ? -t.amountCents : t.kind === "receita" ? t.amountCents : 0);
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
   const [ty, tm, td] = today.split("-").map(Number);
   const todayDate = new Date(ty, tm - 1, td);
@@ -177,7 +173,6 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   const chipOff = `${chipBase} bg-surface-container text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface`;
   const chipOn = `${chipBase} bg-surface-container-high font-semibold text-primary shadow-sm`;
   const iconCls = "material-symbols-outlined";
-  const monthResult = income.done - expense.done;
 
   return (
     <PageShell>
@@ -271,9 +266,9 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
               </div>
               <div className="mt-2 flex items-center gap-1 font-body-sm text-label-sm text-on-surface-variant">
                 <span className={`${iconCls} text-[14px] text-primary`}>add_circle</span>
-                {income.planned > 0 || expense.planned > 0 ? (
+                {entradas.planned > 0 || saidas.planned > 0 ? (
                   <span>
-                    Previstos no mês: + <Amount cents={income.planned} /> · − <Amount cents={expense.planned} />
+                    Previstos no mês: + <Amount cents={entradas.planned} /> · − <Amount cents={saidas.planned} />
                   </span>
                 ) : (
                   <span>Sem previstos no restante do mês</span>
@@ -287,35 +282,12 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
               </div>
               <div className="mt-2 flex items-baseline gap-2">
                 <Amount cents={low?.endBalanceCents ?? 0} className={`font-headline-xl text-headline-xl ${deficit ? "text-error" : "text-on-surface"}`} />
-                {low && <span className={`font-label-sm text-label-sm font-semibold ${deficit ? "text-error" : "text-on-surface-variant"}`}>{formatDayHeader(low.date)}</span>}
+                {low && <span className={`font-label-sm text-label-sm font-semibold ${deficit ? "text-error" : "text-on-surface-variant"}`}>{lowIsOpening ? "Abertura do mês" : formatDayHeader(low.date)}</span>}
               </div>
               <div className="mt-2 flex items-center gap-1 font-body-sm text-label-sm text-on-surface-variant">
                 <span className={`${iconCls} text-[14px] ${deficit ? "text-error" : "text-primary"}`}>south_east</span>
-                {plannedOut > 0 ? <span>Saídas previstas no mês: − <Amount cents={plannedOut} /></span> : <span>Sem saídas previstas no mês</span>}
+                {saidas.planned > 0 ? <span>Saídas previstas no mês: − <Amount cents={saidas.planned} /></span> : <span>Sem saídas previstas no mês</span>}
               </div>
-              {dueInvoices.length > 0 && (
-                <ul className="mt-1 flex flex-col gap-0.5 font-body-sm text-label-sm text-on-surface-variant" aria-label="Faturas a pagar no mês">
-                  {dueInvoices.map((i) => (
-                    <li key={`${i.cardId}-${i.dueDate}`} className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-1">
-                        <span className={`${iconCls} text-[14px]`}>credit_card</span>
-                        Fatura {i.cardName} · {i.overdue ? "venceu" : "vence"} {formatDateBR(i.dueDate).slice(0, 5)}
-                      </span>
-                      <span className={i.overdue ? "font-semibold text-error" : ""}>− <Amount cents={i.remainingCents} /></span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {openCycle.length > 0 && (
-                <ul className="mt-2 flex flex-col gap-0.5 border-t border-outline-variant/30 pt-2 font-body-sm text-label-sm text-on-surface-variant" aria-label="Faturas abertas">
-                  {openCycle.map((i) => (
-                    <li key={i.cardId} className="flex items-center justify-between gap-2">
-                      <span>Fatura aberta {i.cardName} · vence {formatDateBR(i.dueDate).slice(0, 5)}</span>
-                      <span><Amount cents={i.totalCents} /></span>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
           </div>
 
@@ -370,33 +342,33 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
             </Link>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Link href={kindLink("receita")} aria-label="Filtrar só receitas" className={`group w-full rounded-xl bg-surface-container p-4 text-left shadow-sm transition-all hover:bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-primary/40 ${filters.kind === "receita" ? "ring-2 ring-primary/60" : ""}`}>
+            <Link href={kindLink("entrada")} aria-label="Filtrar só entradas" className={`group w-full rounded-xl bg-surface-container p-4 text-left shadow-sm transition-all hover:bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-primary/40 ${filters.kind === "entrada" ? "ring-2 ring-primary/60" : ""}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary"><span className={`${iconCls} text-body-md`}>arrow_downward</span></span>
-                  <span className="font-label-md text-label-md text-on-surface-variant group-hover:text-on-surface">Total Receitas</span>
+                  <span className="font-label-md text-label-md text-on-surface-variant group-hover:text-on-surface">Entradas</span>
                 </div>
-                <span className="rounded bg-surface-container px-2 py-0.5 font-label-sm text-label-sm font-semibold text-primary group-hover:bg-primary-container group-hover:text-on-primary">{filters.kind === "receita" ? "Limpar" : "Filtrar"}</span>
+                <span className="rounded bg-surface-container px-2 py-0.5 font-label-sm text-label-sm font-semibold text-primary group-hover:bg-primary-container group-hover:text-on-primary">{filters.kind === "entrada" ? "Limpar" : "Filtrar"}</span>
               </div>
               <div className="mt-3">
-                <div className="font-headline-lg text-headline-lg font-bold text-primary">+<Amount cents={income.done} /></div>
-                <div className="mt-1 font-body-sm text-label-sm text-on-surface-variant">{income.planned > 0 ? <>+ <Amount cents={income.planned} /> previstos</> : "Nenhuma receita prevista"}</div>
+                <div className="font-headline-lg text-headline-lg font-bold text-primary">+<Amount cents={entradas.done} /></div>
+                <div className="mt-1 font-body-sm text-label-sm text-on-surface-variant">{entradas.planned > 0 ? <>+ <Amount cents={entradas.planned} /> previstas</> : "Nenhuma entrada prevista"}</div>
               </div>
             </Link>
-            <Link href={kindLink("despesa")} aria-label="Filtrar só despesas" className={`group w-full rounded-xl bg-surface-container p-4 text-left shadow-sm transition-all hover:bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-tertiary-container/40 ${filters.kind === "despesa" ? "ring-2 ring-tertiary-container/60" : ""}`}>
+            <Link href={kindLink("saida")} aria-label="Filtrar só saídas" className={`group w-full rounded-xl bg-surface-container p-4 text-left shadow-sm transition-all hover:bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-tertiary-container/40 ${filters.kind === "saida" ? "ring-2 ring-tertiary-container/60" : ""}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-tertiary-container/20 text-tertiary"><span className={`${iconCls} text-body-md`}>arrow_upward</span></span>
-                  <span className="font-label-md text-label-md text-on-surface-variant group-hover:text-on-surface">Total Despesas</span>
+                  <span className="font-label-md text-label-md text-on-surface-variant group-hover:text-on-surface">Saídas</span>
                 </div>
-                <span className="rounded bg-surface-container px-2 py-0.5 font-label-sm text-label-sm font-semibold text-tertiary group-hover:bg-tertiary-container group-hover:text-on-tertiary-container">{filters.kind === "despesa" ? "Limpar" : "Filtrar"}</span>
+                <span className="rounded bg-surface-container px-2 py-0.5 font-label-sm text-label-sm font-semibold text-tertiary group-hover:bg-tertiary-container group-hover:text-on-tertiary-container">{filters.kind === "saida" ? "Limpar" : "Filtrar"}</span>
               </div>
               <div className="mt-3">
-                <div className="font-headline-lg text-headline-lg font-bold text-tertiary">−<Amount cents={expense.done} /></div>
-                <div className="mt-1 font-body-sm text-label-sm text-on-surface-variant">{expense.planned > 0 ? <>− <Amount cents={expense.planned} /> previstos</> : "Nenhuma despesa prevista"}</div>
-                {expense.onCard > 0 && (
+                <div className="font-headline-lg text-headline-lg font-bold text-tertiary">−<Amount cents={saidas.done} /></div>
+                <div className="mt-1 font-body-sm text-label-sm text-on-surface-variant">{saidas.planned > 0 ? <>− <Amount cents={saidas.planned} /> previstas</> : "Nenhuma saída prevista"}</div>
+                {cardPurchasesCents > 0 && (
                   <div className="mt-1 font-body-sm text-label-sm text-on-surface-variant">
-                    <Amount cents={expense.onCard} /> em compras no cartão, que saem só na fatura
+                    <Amount cents={cardPurchasesCents} /> em compras no cartão, que saem na fatura
                   </div>
                 )}
               </div>
@@ -405,16 +377,27 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface-container-highest text-secondary"><span className={`${iconCls} text-body-md`}>balance</span></span>
-                  <span className="font-label-md text-label-md text-on-surface-variant">Resultado Operacional</span>
+                  <span className="font-label-md text-label-md text-on-surface-variant">Resultado do mês</span>
                 </div>
-                <span className={`rounded px-2 py-0.5 font-label-sm text-label-sm font-semibold ${monthResult >= 0 ? "bg-primary/10 text-primary" : "bg-tertiary-container/20 text-tertiary"}`}>{monthResult >= 0 ? "Superávit" : "Déficit"}</span>
+                <span className={`rounded px-2 py-0.5 font-label-sm text-label-sm font-semibold ${resultCents >= 0 ? "bg-primary/10 text-primary" : "bg-tertiary-container/20 text-tertiary"}`}>
+                  {resultCents >= 0 ? "Superávit" : "Déficit"}{futureMonth && " previsto"}
+                </span>
               </div>
               <div className="mt-3">
-                <div className="font-headline-lg text-headline-lg font-bold text-on-surface">{monthResult > 0 && "+"}<Amount cents={monthResult} /></div>
-                <div className={`mt-1 flex items-center gap-1 font-body-sm text-label-sm font-semibold ${monthResult >= 0 ? "text-primary" : "text-tertiary"}`}>
-                  <span className={`${iconCls} text-[14px]`}>{monthResult >= 0 ? "trending_up" : "trending_down"}</span>
-                  {monthResult >= 0 ? "Saldo positivo acumulado em" : "Saldo negativo acumulado em"} {monthName.split(" ")[0]}
+                <div className="font-headline-lg text-headline-lg font-bold text-on-surface">{resultCents > 0 && "+"}<Amount cents={resultCents} /></div>
+                <div className={`mt-1 flex items-center gap-1 font-body-sm text-label-sm font-semibold ${resultCents >= 0 ? "text-primary" : "text-tertiary"}`}>
+                  <span className={`${iconCls} text-[14px]`}>{resultCents >= 0 ? "trending_up" : "trending_down"}</span>
+                  {futureMonth ? (
+                    <>Previsão para {monthName.split(" ")[0]}</>
+                  ) : (
+                    <>Realizado até agora: {resultado.done > 0 && "+"}<Amount cents={resultado.done} /></>
+                  )}
                 </div>
+                {outsideCents !== 0 && (
+                  <div className="mt-1 font-body-sm text-label-sm text-on-surface-variant">
+                    Guardado/transferido: {outsideCents > 0 && "+"}<Amount cents={outsideCents} />, fora do resultado
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -501,6 +484,8 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
               <option value="receita">Receita</option>
               <option value="despesa">Despesa</option>
               <option value="transferencia">Transferência</option>
+              <option value="entrada">Entrada de caixa</option>
+              <option value="saida">Saída de caixa</option>
             </select>
             <select name="situacao" defaultValue={filters.status ?? ""} className="input" aria-label="Filtrar por situação">
               <option value="">Todas as situações</option>
@@ -604,9 +589,14 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
         <div className="flex flex-col gap-6" aria-label="Lista de lançamentos">
           {weeks.map((w) => {
             const items = w.days.flatMap((d) => d.items);
-            const subtotal = items.reduce((sum, t) => sum + flowOf(t), 0);
-            const lastDay = w.days.at(-1)?.date;
-            const endBalance = showBalance && lastDay ? [...days].reverse().find((d) => d.date <= lastDay) : undefined;
+            // Com saldo, o subtotal é a variação dele na semana, então sempre bate com o "Saldo ao fim".
+            // Sem saldo (filtro ativo), soma o que a lista mostra: fatura entra, compra no cartão não.
+            const endBalance = showBalance ? balanceOf.get(`${month}-${pad(w.end)}`) : undefined;
+            // "De hoje em diante" corta a semana de hoje no próprio dia de hoje, não no primeiro dia com lançamento.
+            const weekStart = `${month}-${pad(w.start)}`;
+            const startDate = onlyFuture && todayInMonth && today > weekStart ? today : weekStart;
+            const before = balanceOf.get(addDays(startDate, -1))?.endBalanceCents ?? openingCents;
+            const subtotal = endBalance ? endBalance.endBalanceCents - before : items.reduce((sum, t) => sum + listedFlowCents(t, cash.cardIds), 0);
             return (
               <section key={w.n} className="flex flex-col gap-2" aria-label={`Semana ${w.n}`}>
                 <header className="flex flex-wrap items-center justify-between gap-2 px-2 py-1 text-on-surface-variant">

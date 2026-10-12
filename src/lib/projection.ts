@@ -111,6 +111,17 @@ export function dailyBalances(opts: {
   return result;
 }
 
+/** Saldo no fim do dia anterior a `from`: o saldo de abertura do período. */
+export function openingBalance(opts: {
+  accounts: ProjectionAccount[];
+  transactions: ProjectionTx[];
+  today: string;
+  from: string;
+}): number {
+  const day = addDays(opts.from, -1);
+  return dailyBalances({ ...opts, from: day, to: day })[0].endBalanceCents;
+}
+
 export type DayGroup<T extends ProjectionTx> = { date: string; items: T[] };
 
 /**
