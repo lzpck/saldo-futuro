@@ -46,6 +46,9 @@ export function createInstallmentPurchase(db: Db, input: InstallmentInput): numb
 
   const amounts = input.mode === "total" ? splitInstallments(input.valueCents, count) : Array<number>(count).fill(input.valueCents);
 
+  // No cartão a data decide a Fatura (ADR 0004), então a parcela mantém o vencimento mesmo "paga".
+  const onCard = getAccount(db, input.accountId)?.kind === "cartao";
+
   return db.transaction(() => {
     const { lastInsertRowid } = db
       .prepare(
@@ -60,7 +63,7 @@ export function createInstallmentPurchase(db: Db, input: InstallmentInput): numb
       createTransaction(db, {
         kind: "despesa",
         status: paid ? "efetivado" : "previsto",
-        date: paid && due > input.today ? input.today : due,
+        date: paid && !onCard && due > input.today ? input.today : due,
         amountCents,
         description: input.description,
         accountId: input.accountId,

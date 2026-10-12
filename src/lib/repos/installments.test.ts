@@ -96,6 +96,17 @@ describe("compra parcelada em andamento (parcela inicial)", () => {
     expect(rows(id).map((t) => t.date)).toEqual(["2026-11-29", "2026-12-29", "2027-01-29"]);
   });
 
+  it("no cartão a parcela mantém o vencimento, mesmo marcada como paga: a data decide a Fatura", () => {
+    const card = createAccount(db, { name: "Visa", kind: "cartao", initialBalanceCents: 0, closingDay: 5, dueDay: 12, payAccountId: bank });
+    const id = buyFrom(6, 8, { accountId: card, firstDate: "2026-05-29", firstPaid: true });
+    expect(rows(id).map((t) => t.date)).toEqual(["2026-10-29", "2026-11-29", "2026-12-29"]);
+  });
+
+  it("fora do cartão, a parcela marcada como paga antes do vencimento fica com a data de hoje", () => {
+    const id = buyFrom(6, 8, { firstDate: "2026-05-29", firstPaid: true });
+    expect(rows(id)[0]).toMatchObject({ status: "efetivado", date: TODAY });
+  });
+
   it("rejeita parcela inicial fora de 1 até o total", () => {
     expect(() => buyFrom(0)).toThrow(/parcela inicial/i);
     expect(() => buyFrom(11)).toThrow(/parcela inicial/i);
