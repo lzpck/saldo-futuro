@@ -14,7 +14,7 @@ export type InstallmentInput = {
   installments: number;
   /** Parcela inicial: nº da primeira parcela lançada (padrão 1). As anteriores foram pagas antes do app e não são criadas. */
   firstNo?: number;
-  /** Vencimento da primeira parcela lançada; as demais caem nos meses seguintes, no mesmo dia. */
+  /** Vencimento da parcela 1 da compra (mesmo que ela não seja lançada); a parcela N cai N-1 meses depois, no mesmo dia. */
   firstDate: string;
   accountId: number;
   categoryId: number | null;
@@ -55,7 +55,7 @@ export function createInstallmentPurchase(db: Db, input: InstallmentInput): numb
     const purchaseId = Number(lastInsertRowid);
 
     amounts.forEach((amountCents, i) => {
-      const due = addMonthsClamped(input.firstDate, i);
+      const due = addMonthsClamped(input.firstDate, firstNo + i - 1);
       const paid = i === 0 && input.firstPaid;
       createTransaction(db, {
         kind: "despesa",

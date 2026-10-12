@@ -7,7 +7,8 @@ import { SeedFields } from "@/components/seed-fields";
 import { shiftMonth } from "@/lib/prediction";
 import { formatMoneyField, parseBRL } from "@/lib/money";
 import { benefitWarnings } from "@/lib/benefit";
-import { FREQUENCIES, FREQUENCY_LABEL, type Frequency } from "@/lib/recurrence";
+import { formatDateBR } from "@/lib/dates";
+import { addMonthsClamped, FREQUENCIES, FREQUENCY_LABEL, type Frequency } from "@/lib/recurrence";
 import { isBenefit, isCard, type AccountWithBalance } from "@/lib/repos/accounts";
 import type { Category } from "@/lib/repos/categories";
 import type { Transaction, TransactionKind, TransactionStatus } from "@/lib/repos/transactions";
@@ -100,7 +101,7 @@ export function TransactionForm({
     activeRepeat === "parcelado"
       ? amountMode === "total" && firstNo === 1 ? "Valor total da compra" : "Valor de cada parcela"
       : variable ? "Valor estimado (usado até haver histórico)" : "Valor";
-  const dateLabel = activeRepeat === "parcelado" ? (firstNo > 1 ? `Vencimento da ${firstNo}ª parcela` : "Vencimento da 1ª parcela") : activeRepeat === "recorrente" ? "Primeira data" : "Data";
+  const dateLabel = activeRepeat === "parcelado" ? "Vencimento da 1ª parcela" : activeRepeat === "recorrente" ? "Primeira data" : "Data";
 
   return (
     <form action={action} className="card space-y-4">
@@ -329,7 +330,7 @@ export function TransactionForm({
               </div>
               {firstNo > 1 && (
                 <p className="col-span-3 text-xs text-muted">
-                  Compra em andamento: só as parcelas da {firstNo}ª em diante serão lançadas, a partir da data informada.
+                  Compra em andamento: só as parcelas da {firstNo}ª em diante serão lançadas. Informe o vencimento da 1ª parcela da compra original{date ? `; a ${firstNo}ª cai em ${formatDateBR(addMonthsClamped(date, firstNo - 1))}` : ""}.
                 </p>
               )}
             </div>

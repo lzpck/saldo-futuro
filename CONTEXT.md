@@ -109,7 +109,7 @@ Estimativa do valor de uma Recorrência variável, calculada por média ponderad
 
 **Compra parcelada**:
 Compra dividida em N parcelas, cada uma sendo um Lançamento no seu mês: Previsto, fora do cartão. No cartão, todas as Parcelas são Efetivadas e cada uma cai na Fatura do seu mês.
-Pode ser registrada já em andamento, informando a **Parcela inicial**: o número da primeira Parcela que o usuário lança. As anteriores (pagas antes de usar o app) não existem como Lançamentos, e a numeração segue o total original (ex.: 8/10, 9/10, 10/10).
+Pode ser registrada já em andamento, informando a **Parcela inicial**: o número da primeira Parcela que o usuário lança. As anteriores (pagas antes de usar o app) não existem como Lançamentos, e a numeração segue o total original (ex.: 8/10, 9/10, 10/10). A data informada é sempre o vencimento da Parcela 1 da compra original, mesmo quando as primeiras Parcelas não são lançadas: o mês de cada Parcela lançada vem dela (a Parcela N cai N−1 meses depois).
 
 **Parcela inicial**:
 Número da primeira Parcela lançada de uma Compra parcelada (1 quando a compra é registrada desde o começo).

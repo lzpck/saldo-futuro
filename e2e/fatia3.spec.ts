@@ -156,7 +156,7 @@ test("compra parcelada em andamento: lança só da parcela inicial até a últim
   await expect(page.getByLabel("Valor informado")).toHaveValue("parcela");
   await page.getByLabel("Valor de cada parcela").fill("120,00");
   await page.getByLabel("Descrição").fill("Geladeira teste");
-  await page.getByLabel("Vencimento da 8ª parcela").fill(offset(5));
+  await page.getByLabel("Vencimento da 1ª parcela").fill(offset(5));
   await page.getByRole("button", { name: "Criar compra parcelada" }).click();
   await page.waitForURL(/lancamentos\?mes/);
 

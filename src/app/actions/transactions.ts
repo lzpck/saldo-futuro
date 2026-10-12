@@ -5,6 +5,7 @@ import { verifySession } from "@/lib/auth/dal";
 import { refreshAll } from "./shared";
 import { getDb } from "@/lib/db/connection";
 import { todayISO } from "@/lib/dates";
+import { addMonthsClamped } from "@/lib/recurrence";
 import { dateField, idField, intField, optionalDateField, parseTransactionForm, type FormState } from "@/lib/forms";
 import { budgetWarnings } from "@/lib/repos/budgets";
 import { createInstallmentPurchase } from "@/lib/repos/installments";
@@ -26,7 +27,8 @@ export async function saveTransaction(_: FormState, fd: FormData): Promise<FormS
   if (!parsed.ok) return { error: parsed.error };
   const { data, repeat } = parsed;
   const db = getDb();
-  const month = data.date.slice(0, 7);
+  // Compra parcelada em andamento: a data é a da parcela 1, mas o que se cria começa na parcela inicial.
+  const month = (repeat.type === "parcelado" ? addMonthsClamped(data.date, repeat.firstNo - 1) : data.date).slice(0, 7);
   const warnsBudget = data.kind === "despesa" && data.categoryId != null;
   // O aviso é só para quem faz estourar: se o limite já estava estourado antes, não repete.
   const alreadyOver = warnsBudget && budgetWarnings(db, data.categoryId!, month, todayISO()).length > 0;

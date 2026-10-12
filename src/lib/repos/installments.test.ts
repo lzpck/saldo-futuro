@@ -71,16 +71,29 @@ describe("compra parcelada em andamento (parcela inicial)", () => {
 
   it("cria só as parcelas da inicial até a última, numeradas pelo total original", () => {
     const id = buyFrom(8);
-    expect(rows(id).map((t) => [t.installmentNo, t.date])).toEqual([
-      [8, "2026-10-20"],
-      [9, "2026-11-20"],
-      [10, "2026-12-20"],
-    ]);
+    expect(rows(id).map((t) => t.installmentNo)).toEqual([8, 9, 10]);
     expect(getPurchase(db, id)).toMatchObject({ totalInstallments: 10, firstNo: 8, remainingCount: 3, totalCents: 30_000 });
+  });
+
+  it("a data informada é o vencimento da parcela 1: a parcela N cai N-1 meses depois", () => {
+    // Compra em 8x feita em 29/05, restam a 6ª, 7ª e 8ª.
+    const id = buyFrom(6, 8, { firstDate: "2026-05-29" });
+    expect(rows(id).map((t) => [t.installmentNo, t.date])).toEqual([
+      [6, "2026-10-29"],
+      [7, "2026-11-29"],
+      [8, "2026-12-29"],
+    ]);
   });
 
   it("a parcela inicial pode ser a última", () => {
     expect(rows(buyFrom(10))).toHaveLength(1);
+  });
+
+  it("criar e editar concordam: o vencimento da 1ª parcela volta como foi informado", () => {
+    const id = buyFrom(6, 8, { firstDate: "2026-05-29" });
+    expect(purchaseEditDefaults(db, id, TODAY).firstDate).toBe("2026-05-29");
+    updatePurchase(db, id, edit({ installments: 8, firstDate: "2026-06-29" }), TODAY);
+    expect(rows(id).map((t) => t.date)).toEqual(["2026-11-29", "2026-12-29", "2027-01-29"]);
   });
 
   it("rejeita parcela inicial fora de 1 até o total", () => {
