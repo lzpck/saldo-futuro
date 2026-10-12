@@ -3,6 +3,7 @@ import { Amount } from "@/components/amount";
 import { FormLink } from "@/components/form-link";
 import { BalanceChart } from "@/components/balance-chart";
 import { ScrollToToday } from "@/components/scroll-to-today";
+import { ScrollToTop } from "@/components/scroll-to-top";
 import { FeedRow } from "@/components/feed-row";
 import { MonthStepper, PageHeader, PageShell, PRIMARY_ACTION } from "@/components/page-shell";
 import { getDb } from "@/lib/db/connection";
@@ -697,6 +698,8 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
         </div>
       )}
       {!searching && todayInMonth && <ScrollToToday targetId="hoje" />}
+
+      <ScrollToTop className="fixed bottom-36 right-7 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-line bg-surface text-on-surface shadow-lg transition-all hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary-container/40 active:scale-95 md:bottom-24" />
 
       <FormLink
         href="/lancamentos/novo"
