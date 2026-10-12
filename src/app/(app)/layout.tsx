@@ -6,7 +6,7 @@ import { Nav } from "@/components/nav";
 
 export const dynamic = "force-dynamic";
 
-export default async function AppLayout({ children }: LayoutProps<"/">) {
+export default async function AppLayout({ children, modal }: LayoutProps<"/">) {
   await verifySession();
   return (
     <>
@@ -20,6 +20,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       >
         {children}
       </AppMain>
+      {modal}
     </>
   );
 }

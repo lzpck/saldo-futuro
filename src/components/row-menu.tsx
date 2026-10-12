@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 const icon = "material-symbols-outlined";
@@ -58,34 +59,19 @@ export function RowMenu({ label, editHref, skipping, children }: { label: string
       )}
 
       {confirming && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-dim/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Confirmar exclusão">
-          <div className="flex w-full max-w-md flex-col gap-4 rounded-2xl bg-surface-container-high p-6 text-left text-on-surface shadow-2xl">
-            <div className="flex items-center gap-3 text-error">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-error-container/30">
-                <span className={`${icon} text-headline-md`}>warning</span>
-              </div>
-              <div>
-                <h4 className="font-headline-md text-headline-md text-on-surface">{skipping ? "Pular ocorrência" : "Confirmar Exclusão"}</h4>
-                <p className="font-label-sm text-label-sm text-on-surface-variant">Esta ação recalculará a curva de projeção financeira.</p>
-              </div>
-            </div>
-            <p className="font-body-md text-body-md text-on-surface-variant">
-              {skipping
-                ? "Só esta ocorrência deixa de valer; as demais continuam. Ela sai dos fluxos de caixa futuros e do saldo previsto."
-                : "Tem certeza de que deseja remover este lançamento? Ele será desvinculado dos fluxos de caixa futuros e do saldo previsto."}
-            </p>
-            <div className="mt-2 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setConfirming(false)}
-                className="rounded-lg bg-surface-container px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-highest"
-              >
-                Cancelar
-              </button>
-              {children}
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          label="Confirmar exclusão"
+          title={skipping ? "Pular ocorrência" : "Confirmar Exclusão"}
+          subtitle="Esta ação recalculará a curva de projeção financeira."
+          description={
+            skipping
+              ? "Só esta ocorrência deixa de valer; as demais continuam. Ela sai dos fluxos de caixa futuros e do saldo previsto."
+              : "Tem certeza de que deseja remover este lançamento? Ele será desvinculado dos fluxos de caixa futuros e do saldo previsto."
+          }
+          onCancel={() => setConfirming(false)}
+        >
+          {children}
+        </ConfirmDialog>
       )}
     </div>
   );

@@ -7,7 +7,8 @@ import { FREQUENCIES, type Frequency } from "./recurrence";
 import { MAX_INSTALLMENTS } from "./repos/installments";
 import type { HistorySeedEntry } from "./repos/recurrences";
 
-export type FormState = { error?: string } | undefined;
+/** `done`: salvou dentro de um modal, que se fecha sozinho (fora dele a action redireciona). */
+export type FormState = { error?: string; done?: boolean } | undefined;
 
 const text = (v: FormDataEntryValue | null) => (typeof v === "string" ? v.trim() : "");
 const optionalId = (v: FormDataEntryValue | null) => {
