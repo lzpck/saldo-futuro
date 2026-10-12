@@ -7,6 +7,7 @@ import { accountLabel } from "@/lib/account-options";
 import type { Category } from "@/lib/repos/categories";
 import { ACCOUNT_KINDS, ACCOUNT_KIND_LABEL, type Account, type AccountKind } from "@/lib/repos/accounts";
 import { MoneyInput } from "@/components/money-input";
+import { ModalField, useCloseOnDone } from "@/components/modal";
 
 export function AccountForm({
   existing,
@@ -22,6 +23,7 @@ export function AccountForm({
   categories?: Category[];
 }) {
   const [state, action, pending] = useActionState(saveAccount, undefined);
+  useCloseOnDone(state?.done);
   const [kind, setKind] = useState<AccountKind>(existing?.kind ?? initialKind);
   const isCardKind = kind === "cartao";
   // Cartão e conta comum não se convertem: ao editar, a lista de tipos fica do mesmo lado.
@@ -29,6 +31,7 @@ export function AccountForm({
 
   return (
     <form action={action} className="card space-y-4">
+      <ModalField />
       {existing && <input type="hidden" name="id" value={existing.id} />}
       <div>
         <label htmlFor="name" className="label">Nome</label>

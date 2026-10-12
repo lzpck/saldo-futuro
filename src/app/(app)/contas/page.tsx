@@ -222,7 +222,7 @@ export default function AccountsPage() {
       href={`/lancamentos?conta=${a.id}`}
       subtitle={<>{ACCOUNT_KIND_LABEL[a.kind]} · {reconciledText(a.reconciledAt)}</>}
       value={<BalanceCell account={a} outlook={outlooks.get(a.id)} />}
-      actions={<Link href={`/contas/${a.id}#ajustar`} className={ROW_ACTION}>Ajustar saldo</Link>}
+      actions={<Link href={`/contas/${a.id}/ajustar`} className={ROW_ACTION}>Ajustar saldo</Link>}
     />
   );
 
@@ -302,7 +302,7 @@ export default function AccountsPage() {
                   names.length > 0 ? <>Só para: {names.join(", ")}</> : <>Sem restrição de categoria (use Editar para escolher)</>
                 }
                 value={<Amount cents={a.balanceCents} className="font-semibold" />}
-                actions={<Link href={`/contas/${a.id}#ajustar`} className={ROW_ACTION}>Ajustar saldo</Link>}
+                actions={<Link href={`/contas/${a.id}/ajustar`} className={ROW_ACTION}>Ajustar saldo</Link>}
               />
             );
           })}
@@ -331,7 +331,7 @@ export default function AccountsPage() {
                   </>
                 }
                 value={<Amount cents={a.balanceCents} className="font-semibold" />}
-                actions={<Link href={`/contas/${a.id}#ajustar`} className={ROW_ACTION}>Ajustar saldo</Link>}
+                actions={<Link href={`/contas/${a.id}/ajustar`} className={ROW_ACTION}>Ajustar saldo</Link>}
                 footer={
                   months !== null && (
                     <div className="space-y-1 pl-9">

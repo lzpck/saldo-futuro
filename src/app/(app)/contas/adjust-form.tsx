@@ -4,12 +4,15 @@ import { useActionState } from "react";
 import { adjustBalance } from "@/app/actions/accounts";
 import { centsToInput } from "@/lib/money";
 import { MoneyInput } from "@/components/money-input";
+import { ModalField, useCloseOnDone } from "@/components/modal";
 
 /** Informa o saldo real do banco: a diferença vira um lançamento de ajuste e a data fica como "conferido em". */
 export function AdjustBalanceForm({ id, balanceCents }: { id: number; balanceCents: number }) {
   const [state, action, pending] = useActionState(adjustBalance, undefined);
+  useCloseOnDone(state?.done);
   return (
-    <form id="ajustar" action={action} className="card scroll-mt-24 space-y-3">
+    <form action={action} className="card space-y-3">
+      <ModalField />
       <input type="hidden" name="id" value={id} />
       <div>
         <label htmlFor="actualBalance" className="label">Saldo real no banco</label>

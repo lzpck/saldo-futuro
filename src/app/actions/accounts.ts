@@ -23,6 +23,7 @@ export async function saveAccount(_: FormState, fd: FormData): Promise<FormState
   }
 
   refreshAll();
+  if (fd.get("modal")) return { done: true };
   redirect("/contas");
 }
 
@@ -38,6 +39,7 @@ export async function adjustBalance(_: FormState, fd: FormData): Promise<FormSta
     return { error: e instanceof Error ? e.message : "Não foi possível ajustar o saldo." };
   }
   refreshAll();
+  if (fd.get("modal")) return { done: true };
   redirect("/contas");
 }
 
