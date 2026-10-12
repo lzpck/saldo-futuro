@@ -71,6 +71,7 @@ export async function editPurchase(_: FormState, fd: FormData): Promise<FormStat
     return { error: e instanceof Error ? e.message : "Não foi possível salvar." };
   }
   refreshAll();
+  if (fd.get("modal")) return { done: true };
   redirect(`/agenda/parcelamentos/${purchaseId}`);
 }
 

@@ -1,6 +1,7 @@
-import { CategoryPage, newCategoryView } from "../category-views";
+import { FormPage } from "@/components/form-page";
+import { newCategoryView } from "../category-views";
 
 export default function NewCategoryPage() {
   const { title, body } = newCategoryView();
-  return <CategoryPage title={title}>{body}</CategoryPage>;
+  return <FormPage title={title}>{body}</FormPage>;
 }

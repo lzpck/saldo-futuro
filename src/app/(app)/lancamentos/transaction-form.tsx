@@ -16,6 +16,7 @@ import { AccountOptions } from "@/components/account-options";
 import { defaultAccountId } from "@/lib/account-options";
 import { RETURN_PARAM } from "@/lib/return-to";
 import { MoneyInput } from "@/components/money-input";
+import { ModalField, useCloseOnDone } from "@/components/modal";
 
 const KINDS: { value: TransactionKind; label: string }[] = [
   { value: "despesa", label: "Despesa" },
@@ -51,6 +52,7 @@ export function TransactionForm({
   initialAccountId?: number;
 }) {
   const [state, action, pending] = useActionState(saveTransaction, undefined);
+  const closing = useCloseOnDone(state);
   const returnTo = useSearchParams().get(RETURN_PARAM);
   const [kind, setKind] = useState<TransactionKind>(existing?.kind ?? "despesa");
   const [date, setDate] = useState(existing?.date ?? defaultDate);
@@ -105,6 +107,7 @@ export function TransactionForm({
 
   return (
     <form action={action} className="card space-y-4">
+      <ModalField />
       {returnTo && <input type="hidden" name="voltar" value={returnTo} />}
       {existing && <input type="hidden" name="id" value={existing.id} />}
       {occurrence && (
@@ -342,7 +345,7 @@ export function TransactionForm({
         <p key={w} role="status" className="rounded-xl bg-amber-500/15 px-3.5 py-2.5 text-xs text-amber-400">⚠ {w}</p>
       ))}
       {state?.error && <p className="error">{state.error}</p>}
-      <button type="submit" disabled={pending} className="btn btn-primary w-full">
+      <button type="submit" disabled={pending || closing} className="btn btn-primary w-full">
         {pending
           ? "Salvando…"
           : existing || occurrence

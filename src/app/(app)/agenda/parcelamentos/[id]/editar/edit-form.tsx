@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import { editPurchase } from "@/app/actions/schedule";
 import { AccountOptions } from "@/components/account-options";
 import { MoneyInput } from "@/components/money-input";
+import { ModalField, useCloseOnDone, useModalClose } from "@/components/modal";
 import { centsToInput } from "@/lib/money";
 import type { Account } from "@/lib/repos/accounts";
 import type { Category } from "@/lib/repos/categories";
@@ -22,11 +23,14 @@ export function PurchaseEditForm({
   categories: Category[];
 }) {
   const [state, action, pending] = useActionState(editPurchase, undefined);
+  const closing = useCloseOnDone(state);
+  const closeModal = useModalClose();
   const [mode, setMode] = useState<"parcela" | "total">("parcela");
   const accountLocked = defaults.paidCount > 0;
 
   return (
     <form action={action} className="card space-y-4">
+      <ModalField />
       <input type="hidden" name="purchaseId" value={purchase.id} />
       <input type="hidden" name="initialDate" value={defaults.firstDate} />
       <input type="hidden" name="initialAmountCents" value={defaults.amountCents ?? ""} />
@@ -121,8 +125,12 @@ export function PurchaseEditForm({
 
       {state?.error && <p className="error">{state.error}</p>}
       <div className="grid grid-cols-2 gap-3">
-        <Link href={`/agenda/parcelamentos/${purchase.id}`} className="btn text-center">Voltar</Link>
-        <button type="submit" disabled={pending} className="btn btn-primary">
+        {closeModal ? (
+          <button type="button" onClick={closeModal} className="btn text-center">Voltar</button>
+        ) : (
+          <Link href={`/agenda/parcelamentos/${purchase.id}`} className="btn text-center">Voltar</Link>
+        )}
+        <button type="submit" disabled={pending || closing} className="btn btn-primary">
           {pending ? "Salvando…" : "Salvar alterações"}
         </button>
       </div>

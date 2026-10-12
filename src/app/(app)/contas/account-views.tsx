@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { FormView as View } from "@/components/form-page";
 import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db/connection";
 import { listCategories } from "@/lib/repos/categories";
@@ -7,9 +7,6 @@ import { favoritesFirst } from "@/lib/account-options";
 import { AccountForm } from "./account-form";
 import { AdjustBalanceForm } from "./adjust-form";
 import { ArchiveAccountButton } from "./archive-button";
-
-/** Conteúdo dos formulários de Conta, compartilhado pela página inteira e pelo modal (rota interceptada). */
-type View = { title: string; body: ReactNode };
 
 const benefitCategories = () => listCategories(getDb()).filter((c) => c.kind === "despesa" && c.parentId === null);
 
@@ -42,14 +39,4 @@ export function adjustBalanceView(id: string): View {
   const account = getAccount(getDb(), Number(id));
   if (!account || isCard(account)) notFound();
   return { title: `Ajustar saldo de ${account.name}`, body: <AdjustBalanceForm id={account.id} balanceCents={account.balanceCents} /> };
-}
-
-/** Moldura da página inteira (acesso direto ou atualização); o modal usa `Modal` no lugar. */
-export function AccountPage({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="mx-auto max-w-lg space-y-5">
-      <h1 className="text-2xl font-semibold">{title}</h1>
-      {children}
-    </div>
-  );
 }

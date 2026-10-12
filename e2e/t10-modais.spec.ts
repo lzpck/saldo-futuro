@@ -80,3 +80,28 @@ test("conta: editar em modal e arquivar com confirmação", async ({ page }) => 
   await expect(page).toHaveURL(/\/contas$/);
   await expect(page.locator("li", { hasText: "Conta t10" }).getByRole("link", { name: "Editar" })).toHaveCount(0);
 });
+
+test("lançamento: novo em modal volta à lista de origem e a edição também abre em modal", async ({ page }) => {
+  await entrar(page);
+  await page.goto("/lancamentos");
+  await page.waitForLoadState("networkidle"); // o clique antes da hidratação não abre o modal
+  await page.getByRole("link", { name: /Novo Lançamento/ }).click();
+
+  const modal = page.getByRole("dialog", { name: "Novo lançamento" });
+  await expect(modal).toBeVisible();
+  await expect(page).toHaveURL(/\/lancamentos\/novo\?voltar=/);
+
+  await modal.getByLabel("Valor").fill("12,34");
+  await modal.getByLabel("Descrição").fill("Lanche t10");
+  await modal.getByRole("button", { name: "Adicionar lançamento" }).click();
+
+  await expect(modal).toBeHidden();
+  await expect(page).toHaveURL(/\/lancamentos(\?|$)/);
+  const linha = page.locator("li", { hasText: "Lanche t10" });
+  await expect(linha).toBeVisible();
+
+  await linha.getByRole("link", { name: /Lanche t10/ }).first().click();
+  await expect(page.getByRole("dialog", { name: "Editar lançamento" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});

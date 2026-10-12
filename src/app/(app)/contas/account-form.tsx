@@ -23,7 +23,7 @@ export function AccountForm({
   categories?: Category[];
 }) {
   const [state, action, pending] = useActionState(saveAccount, undefined);
-  useCloseOnDone(state?.done);
+  const closing = useCloseOnDone(state);
   const [kind, setKind] = useState<AccountKind>(existing?.kind ?? initialKind);
   const isCardKind = kind === "cartao";
   // Cartão e conta comum não se convertem: ao editar, a lista de tipos fica do mesmo lado.
@@ -123,7 +123,7 @@ export function AccountForm({
       )}
 
       {state?.error && <p className="error">{state.error}</p>}
-      <button type="submit" disabled={pending} className="btn btn-primary w-full">
+      <button type="submit" disabled={pending || closing} className="btn btn-primary w-full">
         {pending ? "Salvando…" : isCardKind ? "Salvar cartão" : "Salvar conta"}
       </button>
     </form>

@@ -1,6 +1,6 @@
 # Formulários abrem em modal por rotas interceptadas, com a página inteira como reserva
 
-Os formulários de Conta e de Categoria abrem num modal por cima da tela de onde a pessoa veio (Resumo, Contas,
+Os formulários de Conta, Categoria, Lançamento (novo e editar), Ocorrência de recorrência e Compra parcelada (editar) abrem num modal por cima da tela de onde a pessoa veio (Resumo, Contas,
 Cartão, Lançamento), usando a slot paralela `@modal` do layout `(app)` e rotas interceptadas `(...)contas/…` e
 `(...)categorias/…`. Cada formulário continua existindo como página (`/contas/nova`, `/contas/[id]`,
 `/contas/[id]/ajustar`, `/categorias/nova`, `/categorias/[id]`): acesso direto à URL ou atualização da página mostra
@@ -29,6 +29,8 @@ a partir do Resumo ou do formulário de Lançamento tirava a pessoa da tela e se
 - A pasta `@modal` e o `default.tsx`/`[...fora]` são necessários: sem o catch-all o modal ficaria aberto ao navegar
   para outra tela.
 - Novo formulário em modal = uma view compartilhada + página + rota interceptada em `@modal`.
-- Lançamentos, Agenda e Orçamento seguem em página; migrar é uma etapa à parte.
+- Seguem em página: as telas de detalhe da Agenda (Recorrência e Compra parcelada, com histórico, parcelas e ações) e o limite do Orçamento, que já é inline.
+- Lançamento salvo no modal vai para `next` (a origem, com o aviso de orçamento) trocando a entrada do modal no histórico; o botão de salvar fica desabilitado até a navegação terminar.
+- No modal, uma Ocorrência já gravada mostra o formulário do lançamento em vez de redirecionar: salvar re-renderiza a mesma rota antes de fechar, e um redirect a trocaria por outro modal.
 - "Ajustar saldo" deixou de ser uma âncora dentro da edição da Conta e virou a rota `/contas/[id]/ajustar`.
 - O diálogo de confirmação virou o componente `ConfirmDialog`, usado pela exclusão de Lançamento e pelo Arquivar conta.

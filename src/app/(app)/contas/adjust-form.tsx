@@ -9,7 +9,7 @@ import { ModalField, useCloseOnDone } from "@/components/modal";
 /** Informa o saldo real do banco: a diferença vira um lançamento de ajuste e a data fica como "conferido em". */
 export function AdjustBalanceForm({ id, balanceCents }: { id: number; balanceCents: number }) {
   const [state, action, pending] = useActionState(adjustBalance, undefined);
-  useCloseOnDone(state?.done);
+  const closing = useCloseOnDone(state);
   return (
     <form action={action} className="card space-y-3">
       <ModalField />
@@ -22,7 +22,7 @@ export function AdjustBalanceForm({ id, balanceCents }: { id: number; balanceCen
         </p>
       </div>
       {state?.error && <p className="error">{state.error}</p>}
-      <button type="submit" disabled={pending} className="btn w-full">
+      <button type="submit" disabled={pending || closing} className="btn w-full">
         {pending ? "Ajustando…" : "Ajustar saldo"}
       </button>
     </form>

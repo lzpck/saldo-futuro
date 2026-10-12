@@ -86,7 +86,9 @@ export async function saveTransaction(_: FormState, fd: FormData): Promise<FormS
     warnsBudget && !alreadyOver && budgetWarnings(db, data.categoryId!, month, todayISO()).length > 0
       ? `${data.categoryId}_${month}`
       : undefined;
-  redirect(afterSaveUrl(fd.get("voltar"), month, notice));
+  const next = afterSaveUrl(fd.get("voltar"), month, notice);
+  if (fd.get("modal")) return { done: true, next };
+  redirect(next);
 }
 
 export type BudgetNotice = { categoryName: string; exceeded: boolean; usedCents: number; limitCents: number; month: string };

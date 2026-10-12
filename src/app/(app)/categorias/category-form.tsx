@@ -7,7 +7,7 @@ import { ModalField, useCloseOnDone } from "@/components/modal";
 
 export function CategoryForm({ existing, parents }: { existing?: Category; parents: Category[] }) {
   const [state, action, pending] = useActionState(saveCategory, undefined);
-  useCloseOnDone(state?.done);
+  const closing = useCloseOnDone(state);
   const [kind, setKind] = useState(existing?.kind ?? "despesa");
 
   return (
@@ -56,7 +56,7 @@ export function CategoryForm({ existing, parents }: { existing?: Category; paren
       )}
 
       {state?.error && <p className="error">{state.error}</p>}
-      <button type="submit" disabled={pending} className="btn btn-primary w-full">
+      <button type="submit" disabled={pending || closing} className="btn btn-primary w-full">
         {pending ? "Salvando…" : "Salvar categoria"}
       </button>
     </form>

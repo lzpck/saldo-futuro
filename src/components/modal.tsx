@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import type { FormState } from "@/lib/forms";
 import { createContext, useCallback, useContext, useEffect, useRef, type ReactNode } from "react";
 
 const icon = "material-symbols-outlined";
@@ -73,10 +74,18 @@ export function ModalField() {
   return useModalClose() ? <input type="hidden" name="modal" value="1" /> : null;
 }
 
-/** Fecha o modal quando a action avisa que salvou. Fora de um modal não faz nada (a action já redirecionou). */
-export function useCloseOnDone(done: boolean | undefined): void {
+/**
+ * Fecha o modal quando a action avisa que salvou: volta no histórico ou, se a action indicou `next`, vai para lá
+ * (trocando a entrada do modal no histórico). Fora de um modal não faz nada (a action já redirecionou).
+ */
+export function useCloseOnDone(state: FormState): boolean {
   const close = useModalClose();
+  const router = useRouter();
   useEffect(() => {
-    if (done) close?.();
-  }, [done, close]);
+    if (!state?.done) return;
+    if (state.next) router.replace(state.next);
+    else close?.();
+  }, [state, close, router]);
+  // Já salvou: o botão fica desabilitado até a navegação terminar, para um clique duplo não salvar de novo.
+  return Boolean(state?.done);
 }
