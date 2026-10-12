@@ -188,6 +188,13 @@ const MIGRATIONS: Migration[] = [
         AND account_id IN (SELECT id FROM accounts WHERE kind = 'cartao');
     `);
   },
+  // Tela de Contas: limite do cartão e data da última conferência do saldo.
+  (db) => {
+    db.exec(`
+      ALTER TABLE accounts ADD COLUMN credit_limit_cents INTEGER CHECK (credit_limit_cents IS NULL OR credit_limit_cents > 0);
+      ALTER TABLE accounts ADD COLUMN reconciled_at TEXT;
+    `);
+  },
 ];
 
 export function migrate(db: Database.Database): void {

@@ -105,6 +105,14 @@ describe("parseAccountForm", () => {
     expect(parseAccountForm(fd({ ...card, payAccountId: "" }))).toMatchObject({ ok: false, error: /paga a fatura/ });
   });
 
+  it("cartão aceita limite opcional e recusa limite inválido", () => {
+    const card = { name: "N", kind: "cartao", closingDay: "1", dueDay: "10", payAccountId: "1" };
+    expect(parseAccountForm(fd(card))).toMatchObject({ ok: true, data: { creditLimitCents: null } });
+    expect(parseAccountForm(fd({ ...card, creditLimit: "5.000,00" }))).toMatchObject({ ok: true, data: { creditLimitCents: 500_000 } });
+    expect(parseAccountForm(fd({ ...card, creditLimit: "0,00" }))).toMatchObject({ ok: false, error: /limite/i });
+    expect(parseAccountForm(fd({ ...card, creditLimit: "abc" }))).toMatchObject({ ok: false, error: /limite/i });
+  });
+
   it("cartão ignora o saldo inicial informado", () => {
     const r = parseAccountForm(fd({ name: "N", kind: "cartao", closingDay: "1", dueDay: "10", payAccountId: "1", initialBalance: "500,00" }));
     expect(r).toMatchObject({ ok: true, data: { initialBalanceCents: 0 } });

@@ -5,6 +5,7 @@ import { listCategories } from "@/lib/repos/categories";
 import { getAccount, isBenefit, isCard, isSavings, isSpendable, listAccounts } from "@/lib/repos/accounts";
 import { favoritesFirst } from "@/lib/account-options";
 import { AccountForm } from "../account-form";
+import { AdjustBalanceForm } from "../adjust-form";
 
 export default async function EditAccountPage({ params }: PageProps<"/contas/[id]">) {
   const { id } = await params;
@@ -18,6 +19,7 @@ export default async function EditAccountPage({ params }: PageProps<"/contas/[id
     <div className="mx-auto max-w-lg space-y-5">
       <h1 className="text-2xl font-semibold">Editar {noun}</h1>
       <AccountForm existing={account} payers={payers} categories={listCategories(db).filter((c) => c.kind === "despesa" && c.parentId === null)} />
+      {!isCard(account) && <AdjustBalanceForm id={account.id} balanceCents={account.balanceCents} />}
       {!account.archived && (
         <form action={toggleAccountArchived}>
           <input type="hidden" name="id" value={account.id} />

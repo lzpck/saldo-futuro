@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 /** O Resumo e os Lançamentos ocupam a largura toda (cabeçalho fixo e conteúdo próprio); as demais telas ficam numa coluna central. */
 export function AppMain({ notice, children }: { notice: ReactNode; children: ReactNode }) {
   const path = usePathname();
-  const wide = path === "/" || path === "/lancamentos" || path === "/relatorios" || path === "/agenda";
+  const wide = path === "/" || path === "/lancamentos" || path === "/relatorios" || path === "/agenda" || path === "/contas";
   if (wide) {
     return (
       <main className="pb-28 md:ml-64 md:pb-10">

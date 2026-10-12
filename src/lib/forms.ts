@@ -229,7 +229,12 @@ export function parseAccountForm(fd: FormData) {
   if (!pay.success) return { ok: false, error: pay.error.issues[0].message } as const;
   const payAccountId = pay.data;
   if (payAccountId === null) return { ok: false, error: "Escolha a conta que paga a fatura." } as const;
-  return { ok: true, data: { ...base.data, initialBalanceCents: 0, closingDay, dueDay, payAccountId, favorite } } as const;
+  const rawLimit = text(fd.get("creditLimit"));
+  const creditLimitCents = rawLimit === "" ? null : parseBRL(rawLimit);
+  if (rawLimit !== "" && (creditLimitCents === null || creditLimitCents <= 0)) {
+    return { ok: false, error: "Limite do cartão inválido (ex.: 5.000,00)." } as const;
+  }
+  return { ok: true, data: { ...base.data, initialBalanceCents: 0, closingDay, dueDay, payAccountId, favorite, creditLimitCents } } as const;
 }
 
 export function parseCategoryForm(fd: FormData) {

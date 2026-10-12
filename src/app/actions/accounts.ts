@@ -5,7 +5,9 @@ import { verifySession } from "@/lib/auth/dal";
 import { refreshAll } from "./shared";
 import { getDb } from "@/lib/db/connection";
 import { idField, intField, parseAccountForm, type FormState } from "@/lib/forms";
-import { createAccount, setAccountArchived, setAccountFavorite, updateAccount } from "@/lib/repos/accounts";
+import { parseBRL } from "@/lib/money";
+import { todayISO } from "@/lib/dates";
+import { createAccount, reconcileBalance, setAccountArchived, setAccountFavorite, updateAccount } from "@/lib/repos/accounts";
 
 export async function saveAccount(_: FormState, fd: FormData): Promise<FormState> {
   await verifySession();
@@ -20,6 +22,21 @@ export async function saveAccount(_: FormState, fd: FormData): Promise<FormState
     return { error: e instanceof Error ? e.message : "Não foi possível salvar." };
   }
 
+  refreshAll();
+  redirect("/contas");
+}
+
+/** "Ajustar saldo": informa o saldo real do banco; a diferença vira um lançamento de ajuste. */
+export async function adjustBalance(_: FormState, fd: FormData): Promise<FormState> {
+  await verifySession();
+  const id = idField(fd, "id");
+  const actualCents = parseBRL(String(fd.get("actualBalance") ?? ""));
+  if (actualCents === null) return { error: "Informe o saldo real (ex.: 1.234,56)." };
+  try {
+    reconcileBalance(getDb(), id, actualCents, todayISO());
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Não foi possível ajustar o saldo." };
+  }
   refreshAll();
   redirect("/contas");
 }

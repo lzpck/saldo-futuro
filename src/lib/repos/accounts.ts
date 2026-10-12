@@ -1,4 +1,6 @@
 import type { Db } from "../db/connection";
+import { monthBounds } from "../dates";
+import { addDays } from "../projection";
 
 export const ACCOUNT_KINDS = ["corrente", "carteira", "beneficio", "caixinha", "cartao"] as const;
 export type AccountKind = (typeof ACCOUNT_KINDS)[number];
@@ -26,6 +28,10 @@ export type Account = {
   payAccountId: number | null;
   /** Só Benefício: Categorias aceitas (vazio = sem restrição). */
   acceptedCategoryIds: number[];
+  /** Só cartão: limite de crédito (null = não informado). */
+  creditLimitCents: number | null;
+  /** Data da última conferência do saldo com o banco (null = nunca). */
+  reconciledAt: string | null;
 };
 
 export type AccountWithBalance = Account & { balanceCents: number };
@@ -40,6 +46,8 @@ export type AccountInput = {
   favorite?: boolean;
   /** Só Benefício: Categorias aceitas. */
   acceptedCategoryIds?: number[];
+  /** Só cartão: limite de crédito. */
+  creditLimitCents?: number | null;
 };
 
 export const isCard = (a: Pick<Account, "kind">) => a.kind === "cartao";
@@ -58,6 +66,8 @@ type Row = {
   closing_day: number | null;
   due_day: number | null;
   pay_account_id: number | null;
+  credit_limit_cents: number | null;
+  reconciled_at: string | null;
   balance_cents: number;
   accepted_ids: string | null;
 };
@@ -91,6 +101,8 @@ function toAccount(r: Row): AccountWithBalance {
     payAccountId: r.pay_account_id,
     balanceCents: r.balance_cents,
     acceptedCategoryIds: r.accepted_ids ? r.accepted_ids.split(",").map(Number) : [],
+    creditLimitCents: r.credit_limit_cents,
+    reconciledAt: r.reconciled_at,
   };
 }
 
@@ -99,7 +111,7 @@ function normalize(db: Db, input: AccountInput, currentKind?: AccountKind) {
     throw new Error("Não dá para transformar uma conta em cartão (nem o contrário). Crie uma nova.");
   }
   if (input.kind !== "cartao") {
-    return { initial: input.initialBalanceCents, closingDay: null, dueDay: null, payAccountId: null };
+    return { initial: input.initialBalanceCents, closingDay: null, dueDay: null, payAccountId: null, creditLimitCents: null };
   }
 
   const { closingDay, dueDay, payAccountId } = input;
@@ -113,17 +125,21 @@ function normalize(db: Db, input: AccountInput, currentKind?: AccountKind) {
   if (isSavings(payer)) throw new Error("A fatura deve ser paga por uma conta do dia a dia, não por uma Caixinha. Resgate o valor antes.");
   if (isBenefit(payer)) throw new Error("A fatura deve ser paga por uma conta do dia a dia, não por um Benefício. Transfira o valor antes.");
   // A dívida do cartão nasce dos lançamentos; um saldo inicial aqui só confundiria as faturas.
-  return { initial: 0, closingDay, dueDay, payAccountId };
+  const creditLimitCents = input.creditLimitCents ?? null;
+  if (creditLimitCents !== null && (!Number.isSafeInteger(creditLimitCents) || creditLimitCents <= 0)) {
+    throw new Error("O limite do cartão deve ser maior que zero.");
+  }
+  return { initial: 0, closingDay, dueDay, payAccountId, creditLimitCents };
 }
 
 export function createAccount(db: Db, input: AccountInput): number {
   const n = normalize(db, input);
   const { lastInsertRowid } = db
     .prepare(
-      `INSERT INTO accounts (name, kind, initial_balance_cents, closing_day, due_day, pay_account_id, favorite)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO accounts (name, kind, initial_balance_cents, closing_day, due_day, pay_account_id, favorite, credit_limit_cents)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(input.name, input.kind, n.initial, n.closingDay, n.dueDay, n.payAccountId, input.favorite ? 1 : 0);
+    .run(input.name, input.kind, n.initial, n.closingDay, n.dueDay, n.payAccountId, input.favorite ? 1 : 0, n.creditLimitCents);
   saveAcceptedCategories(db, Number(lastInsertRowid), input);
   return Number(lastInsertRowid);
 }
@@ -150,11 +166,12 @@ export function updateAccount(db: Db, id: number, input: AccountInput): void {
   }
   db.prepare(
     `UPDATE accounts SET name = ?, kind = ?, initial_balance_cents = ?, closing_day = ?, due_day = ?, pay_account_id = ?,
-       favorite = ?
+       favorite = ?, credit_limit_cents = ?
      WHERE id = ?`,
   ).run(
     input.name, input.kind, n.initial, n.closingDay, n.dueDay, n.payAccountId,
     input.favorite && !current.archived ? 1 : 0, // conta arquivada nunca é favorita
+    n.creditLimitCents,
     id,
   );
   saveAcceptedCategories(db, id, input);
@@ -200,4 +217,58 @@ export function savedBalanceCents(accounts: AccountWithBalance[]): number {
 /** Benefício: soma dos saldos das Contas Benefício. */
 export function benefitBalanceCents(accounts: AccountWithBalance[]): number {
   return accounts.filter(isBenefit).reduce((sum, a) => sum + a.balanceCents, 0);
+}
+
+/** Texto do lançamento criado por "Ajustar saldo". */
+export const ADJUSTMENT_DESCRIPTION = "Ajuste de saldo";
+
+/**
+ * Confere o saldo com o do banco: se divergir, lança a diferença como Receita ou Despesa de ajuste
+ * (sem Categoria, Efetivada hoje); em qualquer caso grava a data da conferência. Devolve a diferença
+ * aplicada (positiva = entrou dinheiro). Cartão não se ajusta: a dívida nasce dos lançamentos.
+ */
+export function reconcileBalance(db: Db, id: number, actualCents: number, today: string): number {
+  const account = getAccount(db, id);
+  if (!account) throw new Error("Conta não encontrada.");
+  if (account.archived) throw new Error("Conta arquivada não pode ser ajustada.");
+  if (isCard(account)) throw new Error("Cartão não tem saldo para ajustar: lance as compras e os pagamentos.");
+  if (!Number.isSafeInteger(actualCents)) throw new Error("Saldo inválido.");
+  const diff = actualCents - account.balanceCents;
+  db.transaction(() => {
+    if (diff !== 0) {
+      // Direto no SQL: importar `createTransaction` fecharia um ciclo de módulos com transactions.ts.
+      db.prepare(
+        `INSERT INTO transactions (kind, status, date, amount_cents, description, account_id)
+         VALUES (?, 'efetivado', ?, ?, ?, ?)`,
+      ).run(diff > 0 ? "receita" : "despesa", today, Math.abs(diff), ADJUSTMENT_DESCRIPTION, id);
+    }
+    db.prepare("UPDATE accounts SET reconciled_at = ? WHERE id = ?").run(today, id);
+  })();
+  return diff;
+}
+
+/** Despesa mensal média dos últimos 90 dias (Efetivadas, fora das Caixinhas e dos ajustes de saldo): base do "cobre N meses". */
+export function averageMonthlyExpenseCents(db: Db, today: string): number {
+  const row = db
+    .prepare(
+      `SELECT COALESCE(SUM(t.amount_cents), 0) AS total
+       FROM transactions t JOIN accounts a ON a.id = t.account_id
+       WHERE t.kind = 'despesa' AND t.status = 'efetivado' AND a.kind <> 'caixinha'
+         AND t.description <> ? AND t.date > ? AND t.date <= ?`,
+    )
+    .get(ADJUSTMENT_DESCRIPTION, addDays(today, -90), today) as { total: number };
+  return Math.round(row.total / 3);
+}
+
+/** Receitas efetivadas no mês ("YYYY-MM") por conta, sem os ajustes de saldo: o rendimento das Caixinhas. */
+export function monthIncomeByAccount(db: Db, month: string): Map<number, number> {
+  const { from, to } = monthBounds(month);
+  const rows = db
+    .prepare(
+      `SELECT account_id, SUM(amount_cents) AS total FROM transactions
+       WHERE kind = 'receita' AND status = 'efetivado' AND description <> ? AND date BETWEEN ? AND ?
+       GROUP BY account_id`,
+    )
+    .all(ADJUSTMENT_DESCRIPTION, from, to) as { account_id: number; total: number }[];
+  return new Map(rows.map((r) => [r.account_id, r.total]));
 }

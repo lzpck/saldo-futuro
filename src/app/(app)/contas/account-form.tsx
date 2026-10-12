@@ -69,6 +69,16 @@ export function AccountForm({
               ))}
             </select>
           </div>
+          <div>
+            <label htmlFor="creditLimit" className="label">Limite <span className="normal-case">(opcional)</span></label>
+            <MoneyInput
+              id="creditLimit"
+              name="creditLimit"
+              placeholder="0,00"
+              defaultValue={existing?.creditLimitCents ? centsToInput(existing.creditLimitCents) : ""}
+              className="input"
+            />
+          </div>
           <p className="text-xs text-muted">
             A compra entra na fatura que fecha no dia dela ou depois. O dinheiro só sai da conta no vencimento. Mudar
             o dia de fechamento reorganiza as compras entre as faturas.
