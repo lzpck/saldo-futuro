@@ -43,6 +43,10 @@ Conjunto de compras e estornos de uma Conta de cartão num ciclo de fechamento. 
 **Pagamento de fatura**:
 Transferência efetivada da Conta de pagamento para o cartão. Os pagamentos abatem as Faturas da mais antiga para a mais nova, então uma transferência manual para o cartão também conta. Pagamento parcial deixa o restante previsto no mesmo vencimento; compra tardia num ciclo já pago gera um novo pagamento só da diferença.
 
+**Fatura aberta**:
+Fatura de um cartão cujo ciclo ainda não fechou: as compras de agora, que só saem do caixa no vencimento, normalmente no mês seguinte. É informativa: não entra em Saídas previstas nem na Projeção de saldo, que só contam a Fatura no vencimento. Distinta da Conta em aberto, que é o que falta pagar de uma Fatura já fechada (inclusive vencida).
+_Evitar_: fatura em aberto (confunde com Conta em aberto)
+
 **Lançamento**:
 Registro de dinheiro entrando, saindo ou se movendo entre Contas, numa data. Tem um tipo (Receita, Despesa ou Transferência) e um estado (Previsto ou Efetivado).
 _Evitar_: transação, movimentação

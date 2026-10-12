@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { openDb, type Db } from "../db/connection";
 import { dailyBalances } from "../projection";
 import { createAccount, getAccount, isCard, listAccounts, totalBalanceCents, updateAccount } from "./accounts";
-import { cardInvoices, invoiceLabel, listInvoicePayments, payInvoice } from "./cards";
+import { cardInvoices, invoiceLabel, invoicesDueInMonth, listInvoicePayments, openInvoices, payInvoice } from "./cards";
 import { listCategories } from "./categories";
 import { createInstallmentPurchase } from "./installments";
 import { createRecurrence, listWithOccurrences } from "./recurrences";
@@ -272,5 +272,51 @@ describe("pagar a fatura", () => {
     expect(recorded).toBeDefined();
     expect(recorded.status).toBe("efetivado");
     expect(recorded.date).toBe("2026-10-20");
+  });
+});
+
+describe("faturas do mês e fatura aberta", () => {
+  const dueIn = (month: string, accountId?: number) =>
+    invoicesDueInMonth(db, base(), { from: `${month}-01`, to: `${month}-31` }, TODAY, accountId).map((i) => [i.cardName, i.dueDate, i.remainingCents, i.overdue]);
+  const open = () => openInvoices(db, base(), TODAY).map((i) => [i.cardName, i.closingDate, i.dueDate, i.totalCents]);
+
+  it("lista a fatura no mês do vencimento, com o que falta pagar", () => {
+    buy("2026-10-10", 20_000);
+    expect(dueIn("2026-10")).toEqual([]);
+    expect(dueIn("2026-11")).toEqual([["Nubank", "2026-11-05", 20_000, false]]);
+  });
+
+  it("fatura vencida e não paga entra no mês corrente, marcada como vencida", () => {
+    buy("2026-08-10", 9_000); // fecha 25/08, venceu 05/09
+    expect(dueIn("2026-10")).toEqual([["Nubank", "2026-09-05", 9_000, true]]);
+    expect(dueIn("2026-11")).toEqual([]);
+  });
+
+  it("fatura paga não aparece, e pagamento parcial lista só o restante", () => {
+    buy("2026-10-10", 20_000);
+    createTransaction(db, { kind: "transferencia", status: "efetivado", date: "2026-10-12", amountCents: 5_000, accountId: bank, toAccountId: card, description: "Pix" });
+    expect(dueIn("2026-11")).toEqual([["Nubank", "2026-11-05", 15_000, false]]);
+    createTransaction(db, { kind: "transferencia", status: "efetivado", date: "2026-10-13", amountCents: 15_000, accountId: bank, toAccountId: card, description: "Pix" });
+    expect(dueIn("2026-11")).toEqual([]);
+  });
+
+  it("filtro de conta só traz as faturas do cartão ou da conta que as paga", () => {
+    buy("2026-10-10", 20_000);
+    const other = createAccount(db, { name: "Poupança", kind: "corrente", initialBalanceCents: 0 });
+    expect(dueIn("2026-11", bank)).toHaveLength(1);
+    expect(dueIn("2026-11", card)).toHaveLength(1);
+    expect(dueIn("2026-11", other)).toEqual([]);
+  });
+
+  it("fatura aberta é o ciclo de hoje, ainda não fechado, e vence no mês seguinte", () => {
+    buy("2026-10-10", 20_000); // ciclo que fecha em 25/10
+    buy("2026-09-20", 3_000); // ciclo anterior, já fechado: não é a fatura aberta
+    buy("2026-10-27", 7_000); // ciclo seguinte: ainda não começou
+    expect(open()).toEqual([["Nubank", "2026-10-25", "2026-11-05", 20_000]]);
+  });
+
+  it("sem compras no ciclo de hoje não há fatura aberta", () => {
+    buy("2026-09-20", 3_000);
+    expect(open()).toEqual([]);
   });
 });

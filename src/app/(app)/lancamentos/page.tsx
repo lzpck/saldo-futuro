@@ -20,6 +20,8 @@ import { centsToInput } from "@/lib/money";
 import { dailyBalances, groupByDay, isOverdue, lowestBalance, type DayBalance } from "@/lib/projection";
 import { isSpendable, listAccounts } from "@/lib/repos/accounts";
 import { listCategories } from "@/lib/repos/categories";
+import { invoicesDueInMonth, openInvoices } from "@/lib/repos/cards";
+import { listWithOccurrences } from "@/lib/repos/recurrences";
 import { listSchedule } from "@/lib/repos/schedule";
 import type { Transaction } from "@/lib/repos/transactions";
 import { AccountOptions } from "@/components/account-options";
@@ -99,6 +101,12 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   const monthItems = listed.filter((t) => t.date >= from && t.date <= to);
   const income = totals(monthItems, "receita");
   const expense = totals(monthItems, "despesa");
+  // Faturas saem do caixa no vencimento: entram nas saídas previstas. A aberta é só informativa (ADR 0003).
+  const cardBase = showBalance ? listWithOccurrences(db, to) : [];
+  const dueInvoices = showBalance ? invoicesDueInMonth(db, cardBase, { from, to }, today, accountId) : [];
+  const openCycle = showBalance && todayInMonth ? openInvoices(db, cardBase, today, accountId) : [];
+  const invoicesCents = dueInvoices.reduce((s, i) => s + i.remainingCents, 0);
+  const plannedOut = expense.planned + invoicesCents;
 
   const onlyFuture = first(sp.futuros) === "1";
   const hideTransfers = first(sp.semtransf) === "1";
@@ -283,8 +291,31 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
               </div>
               <div className="mt-2 flex items-center gap-1 font-body-sm text-label-sm text-on-surface-variant">
                 <span className={`${iconCls} text-[14px] ${deficit ? "text-error" : "text-primary"}`}>south_east</span>
-                {expense.planned > 0 ? <span>Saídas previstas no mês: − <Amount cents={expense.planned} /></span> : <span>Sem saídas previstas no mês</span>}
+                {plannedOut > 0 ? <span>Saídas previstas no mês: − <Amount cents={plannedOut} /></span> : <span>Sem saídas previstas no mês</span>}
               </div>
+              {dueInvoices.length > 0 && (
+                <ul className="mt-1 flex flex-col gap-0.5 font-body-sm text-label-sm text-on-surface-variant" aria-label="Faturas a pagar no mês">
+                  {dueInvoices.map((i) => (
+                    <li key={`${i.cardId}-${i.dueDate}`} className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1">
+                        <span className={`${iconCls} text-[14px]`}>credit_card</span>
+                        Fatura {i.cardName} · {i.overdue ? "venceu" : "vence"} {formatDateBR(i.dueDate).slice(0, 5)}
+                      </span>
+                      <span className={i.overdue ? "font-semibold text-error" : ""}>− <Amount cents={i.remainingCents} /></span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {openCycle.length > 0 && (
+                <ul className="mt-2 flex flex-col gap-0.5 border-t border-outline-variant/30 pt-2 font-body-sm text-label-sm text-on-surface-variant" aria-label="Faturas abertas">
+                  {openCycle.map((i) => (
+                    <li key={i.cardId} className="flex items-center justify-between gap-2">
+                      <span>Fatura aberta {i.cardName} · vence {formatDateBR(i.dueDate).slice(0, 5)}</span>
+                      <span><Amount cents={i.totalCents} /></span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
 
