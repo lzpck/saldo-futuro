@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
@@ -22,16 +23,8 @@ export function Nav() {
     <>
       {/* Desktop: barra lateral */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-[#1f283b] bg-[#111622] md:flex">
-        <div className="flex h-20 items-center gap-3 border-b border-[#1b2334] px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-emerald-400 text-lg font-bold text-slate-950 shadow-lg shadow-emerald-500/20">
-            S
-          </div>
-          <div>
-            <h1 className="text-base font-bold leading-tight tracking-tight text-slate-100">Saldo Futuro</h1>
-            <p className="mt-0.5 flex items-center gap-1.5 text-[11px] font-medium text-emerald-400">
-              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Projeção Ativa
-            </p>
-          </div>
+        <div className="flex h-20 items-center border-b border-[#1b2334] px-6">
+          <Image src="/logo/horizontal-cor-escuro.svg" alt="Saldo Futuro" width={150} height={42} priority />
         </div>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-4 text-sm font-medium">
           {ITEMS.map((i) => (

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE } from "@/lib/auth/dal";
@@ -15,11 +16,8 @@ export default async function LoginPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
       <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-xl font-bold text-accent-fg">
-          S
-        </div>
-        <h1 className="text-2xl font-semibold">Saldo Futuro</h1>
-        <p className="mt-1 text-sm text-muted">
+        <Image src="/logo/empilhado-cor-escuro.svg" alt="Saldo Futuro" width={180} height={100} priority className="mx-auto" />
+        <p className="mt-3 text-sm text-muted">
           {isPasswordSet(db) ? "Digite sua senha para entrar." : "Primeiro acesso: crie a senha do app."}
         </p>
       </div>
