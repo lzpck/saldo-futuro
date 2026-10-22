@@ -49,7 +49,7 @@ export function Modal({ title, children }: { title: string; children: ReactNode 
           aria-label={title}
           onInput={() => (dirty.current = true)}
           onChange={() => (dirty.current = true)}
-          className="flex max-h-[92dvh] w-full flex-col rounded-t-2xl bg-surface-container-high text-on-surface shadow-2xl md:max-w-lg md:rounded-2xl"
+          className="flex max-h-[92dvh] w-full flex-col rounded-t-2xl bg-surface-container-high font-jakarta text-on-surface shadow-2xl md:max-w-lg md:rounded-2xl"
         >
           <div className="flex items-center justify-between gap-3 px-5 pb-2 pt-4">
             <h2 className="font-headline-md text-headline-md">{title}</h2>
