@@ -101,7 +101,7 @@ export default async function CardPage({ params }: PageProps<"/cartoes/[id]">) {
     <div className="mx-auto max-w-2xl space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">{card.name}</h1>
+          <h1 className="font-headline-xl text-headline-xl tracking-tight">{card.name}</h1>
           <p className="mt-1 text-sm text-muted">
             Fecha dia {card.closingDay} · vence dia {card.dueDay} · paga com {payer?.name ?? "—"}
           </p>

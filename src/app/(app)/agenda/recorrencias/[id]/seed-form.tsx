@@ -20,7 +20,7 @@ export function HistorySeedForm({
     <form action={action} className="card space-y-3">
       <input type="hidden" name="recurrenceId" value={recurrenceId} />
       <div>
-        <h2 className="text-sm font-medium text-muted">Valores informados à mão</h2>
+        <h2 className="font-label-md text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">Valores informados à mão</h2>
         <p className="mt-1 text-xs text-muted">
           Meses anteriores usados só na previsão. Não são lançamentos e não mudam o saldo; quando o mês tem um
           lançamento efetivado, vale o efetivado.

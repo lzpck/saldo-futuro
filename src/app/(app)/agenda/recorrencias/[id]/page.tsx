@@ -38,7 +38,7 @@ export default async function RecurrencePage({ params }: PageProps<"/agenda/reco
   return (
     <div className="mx-auto max-w-lg space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold">{rule.description}</h1>
+        <h1 className="font-headline-xl text-headline-xl tracking-tight">{rule.description}</h1>
         <p className="mt-1 text-sm text-muted">
           {FREQUENCY_LABEL[rule.frequency]} · {rule.accountName} · desde {formatDateBR(rule.startDate)}
           {rule.endDate && ` · até ${formatDateBR(rule.endDate)}`}
@@ -58,7 +58,7 @@ export default async function RecurrencePage({ params }: PageProps<"/agenda/reco
       {rule.isVariable && (
         <>
           <section className="card">
-            <h2 className="mb-2 text-sm font-medium text-muted">Últimos 12 meses</h2>
+            <h2 className="mb-2 font-label-md text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">Últimos 12 meses</h2>
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-muted">
                 <tr>
@@ -84,7 +84,7 @@ export default async function RecurrencePage({ params }: PageProps<"/agenda/reco
       )}
 
       <section className="card">
-        <h2 className="mb-2 text-sm font-medium text-muted">Próximas ocorrências</h2>
+        <h2 className="mb-2 font-label-md text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">Próximas ocorrências</h2>
         {upcoming.length === 0 ? (
           <p className="text-sm text-muted">{ended ? "Esta recorrência foi encerrada." : "Sem ocorrências futuras."}</p>
         ) : (

@@ -2,15 +2,16 @@
 
 @theme inline {
   --color-bg: #0b0e13;
-  --color-surface: #131820;
-  --color-surface-2: #1a212b;
-  --color-line: #242d3a;
-  --color-fg: #e8edf3;
-  --color-muted: #a3afbd;
-  --color-accent: #2dd4bf;
-  --color-accent-fg: #04201c;
-  --color-income: #34d399;
-  --color-expense: #f87171;
+  /* Tokens legados (telas ainda não migradas, formulários): alinhados à paleta do design novo abaixo. */
+  --color-surface: #122131;
+  --color-surface-2: #1c2b3c;
+  --color-line: #273647;
+  --color-fg: #d4e4fa;
+  --color-muted: #a8b5c8;
+  --color-accent: #4edea3;
+  --color-accent-fg: #003824;
+  --color-income: #4edea3;
+  --color-expense: #ffb2b7;
   /* Tokens do design do Stitch ("Dark Slate FinTech") usados na tela de Lançamentos. */
   --color-surface-container-lowest: #010f1f;
   --color-surface-container-low: #0d1c2d;
@@ -82,33 +83,33 @@
 body {
   background: var(--color-bg);
   color: var(--color-fg);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-plus-jakarta), system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
 }
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-line bg-surface p-5;
+    @apply rounded-xl bg-surface-container p-5 shadow-md lg:p-6;
   }
   .label {
-    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted;
+    @apply mb-1.5 block text-label-md font-semibold uppercase tracking-wide text-on-surface-variant;
   }
   .input {
-    @apply w-full rounded-xl border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-fg outline-none transition placeholder:text-muted/60 focus:border-accent;
+    @apply w-full rounded-lg border border-outline-variant/40 bg-surface-container-low px-3.5 py-2.5 text-body-md text-on-surface outline-none transition placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-2 focus:ring-primary/30;
   }
   .btn {
-    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-line bg-surface-2 px-4 py-2.5 text-sm font-medium text-fg transition hover:border-muted/50 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-surface-container-high px-4 py-2.5 text-body-md font-semibold text-on-surface transition-all hover:bg-surface-container-highest focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply border-accent bg-accent text-accent-fg hover:brightness-110;
+    @apply bg-primary-container text-on-primary shadow-lg shadow-primary-container/20 hover:bg-primary-container hover:opacity-95;
   }
   .btn-danger {
-    @apply text-expense hover:border-expense/60;
+    @apply text-tertiary hover:bg-error-container/30;
   }
   .btn-ghost {
-    @apply border-transparent bg-transparent text-muted hover:text-fg;
+    @apply bg-transparent text-on-surface-variant shadow-none hover:bg-surface-container-high hover:text-on-surface;
   }
   .error {
-    @apply rounded-xl border border-expense/40 bg-expense/10 px-3.5 py-2.5 text-sm text-expense;
+    @apply rounded-lg bg-error-container/30 px-3.5 py-2.5 text-body-md text-error;
   }
 }

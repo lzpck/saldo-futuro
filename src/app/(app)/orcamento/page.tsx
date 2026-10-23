@@ -1,9 +1,11 @@
-import Link from "next/link";
 import { BudgetBar } from "@/components/budget-bar";
+import { MonthStepper, PageHeader, PageShell } from "@/components/page-shell";
 import { getDb } from "@/lib/db/connection";
 import { isYearMonth, monthLabel, shiftMonth, todayISO } from "@/lib/dates";
 import { monthBudgets, type BudgetItem } from "@/lib/repos/budgets";
 import { LimitForm } from "./limit-form";
+
+const icon = "material-symbols-outlined";
 
 type SearchParams = Promise<{ mes?: string }>;
 
@@ -18,37 +20,34 @@ export default async function BudgetPage({ searchParams }: { searchParams: Searc
   const href = (m: string) => `/orcamento?mes=${m}`;
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-2xl font-semibold">Orçamento</h1>
+    <PageShell>
+      <PageHeader
+        title="Orçamento"
+        subtitle="O limite vale a partir deste mês, até você mudá-lo (meses anteriores não são alterados)."
+        actions={<MonthStepper label={monthLabel(month)} prevHref={href(shiftMonth(month, -1))} nextHref={href(shiftMonth(month, 1))} />}
+      />
 
-      <div className="flex items-center justify-between">
-        <Link href={href(shiftMonth(month, -1))} className="btn px-3" aria-label="Mês anterior">
-          ‹
-        </Link>
-        <p className="font-medium">{monthLabel(month)}</p>
-        <Link href={href(shiftMonth(month, 1))} className="btn px-3" aria-label="Próximo mês">
-          ›
-        </Link>
-      </div>
-
-      <p className="text-sm text-muted">
-        O limite vale a partir deste mês, até você mudá-lo (meses anteriores não são alterados). Deixe em branco ou
-        use 0 para remover. O limite de uma categoria principal inclui as subcategorias; o de uma subcategoria conta só
-        o gasto dela.
+      <p className="flex items-start gap-2 rounded-xl bg-surface-container-low px-4 py-3 font-body-sm text-body-sm text-on-surface-variant">
+        <span aria-hidden className={`${icon} text-[18px] text-primary`}>info</span>
+        Deixe em branco ou use 0 para remover. O limite de uma categoria principal inclui as subcategorias; o de uma
+        subcategoria conta só o gasto dela.
       </p>
 
-      <ul className="space-y-3">
+      <ul className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         {parents.map((p) => {
           const subs = childrenOf(p.category.id);
           return (
             <li key={p.category.id} className="card space-y-3">
               <Row item={p} month={month} />
               {subs.length > 0 && (
-                <details className="border-t border-line pt-3">
-                  <summary className="cursor-pointer text-sm text-muted">Subcategorias ({subs.length})</summary>
+                <details className="group border-t border-outline-variant/40 pt-3">
+                  <summary className="flex cursor-pointer list-none items-center gap-1 font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface">
+                    <span aria-hidden className={`${icon} text-[18px] transition-transform group-open:rotate-90`}>chevron_right</span>
+                    Subcategorias ({subs.length})
+                  </summary>
                   <ul className="mt-3 space-y-4">
                     {subs.map((s) => (
-                      <li key={s.category.id} className="border-l-2 border-line pl-3">
+                      <li key={s.category.id} className="rounded-lg bg-surface-container-low p-3">
                         <Row item={s} month={month} />
                       </li>
                     ))}
@@ -59,7 +58,7 @@ export default async function BudgetPage({ searchParams }: { searchParams: Searc
           );
         })}
       </ul>
-    </div>
+    </PageShell>
   );
 }
 
@@ -68,7 +67,7 @@ function Row({ item, month }: { item: BudgetItem; month: string }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-medium">
+        <h2 className="font-headline-md text-body-lg font-semibold">
           <span aria-hidden>{category.icon} </span>
           {category.name}
         </h2>

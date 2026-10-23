@@ -7,7 +7,7 @@ export type FormView = { title: string; body: ReactNode };
 export function FormPage({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="mx-auto max-w-lg space-y-5">
-      <h1 className="text-2xl font-semibold">{title}</h1>
+      <h1 className="font-headline-xl text-headline-xl tracking-tight">{title}</h1>
       {children}
     </div>
   );

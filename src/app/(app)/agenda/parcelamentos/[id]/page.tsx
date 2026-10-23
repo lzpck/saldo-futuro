@@ -28,7 +28,7 @@ export default async function PurchasePage({ params }: PageProps<"/agenda/parcel
     <div className="mx-auto max-w-2xl space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">{purchase.description}</h1>
+          <h1 className="font-headline-xl text-headline-xl tracking-tight">{purchase.description}</h1>
           <p className="mt-1 text-sm text-muted">
             {purchase.firstNo > 1 ? `parcelas ${purchase.firstNo} a ${purchase.totalInstallments} de ${purchase.totalInstallments}` : `${purchase.totalInstallments}x`} · {purchase.accountName}
             {purchase.categoryName && ` · ${purchase.categoryName}`}
@@ -56,7 +56,7 @@ export default async function PurchasePage({ params }: PageProps<"/agenda/parcel
       </div>
 
       <section className="card">
-        <h2 className="mb-1 text-sm font-medium text-muted">Parcelas</h2>
+        <h2 className="mb-1 font-label-md text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">Parcelas</h2>
         <p className="mb-1 text-xs text-muted">Toque em uma parcela para alterar valor ou data só dela.</p>
         <ul className="divide-y divide-line">
           {installments.map((t) => (

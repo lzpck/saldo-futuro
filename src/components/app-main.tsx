@@ -3,10 +3,10 @@
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-/** O Resumo e os Lançamentos ocupam a largura toda (cabeçalho fixo e conteúdo próprio); as demais telas ficam numa coluna central. */
+/** As telas principais ocupam a largura toda (cada uma com seu `PageShell`); detalhes e formulários ficam numa coluna central. */
 export function AppMain({ notice, children }: { notice: ReactNode; children: ReactNode }) {
   const path = usePathname();
-  const wide = path === "/" || path === "/lancamentos" || path === "/relatorios" || path === "/agenda" || path === "/contas";
+  const wide = path === "/" || path === "/lancamentos" || path === "/relatorios" || path === "/agenda" || path === "/contas" || path === "/categorias" || path === "/orcamento";
   if (wide) {
     return (
       <main className="pb-28 md:ml-64 md:pb-10">

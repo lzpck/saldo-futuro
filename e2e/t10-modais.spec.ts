@@ -15,7 +15,7 @@ async function entrar(page: Page) {
 test("nova categoria abre em modal, salva e fecha na lista", async ({ page }) => {
   await entrar(page);
   await page.goto("/categorias");
-  await page.getByRole("link", { name: "+ Nova" }).click();
+  await page.getByRole("link", { name: "Nova categoria" }).click();
 
   const modal = page.getByRole("dialog", { name: "Nova categoria" });
   await expect(modal).toBeVisible();
@@ -32,14 +32,14 @@ test("nova categoria abre em modal, salva e fecha na lista", async ({ page }) =>
 test("Esc fecha; clique no fundo só fecha se nada foi digitado", async ({ page }) => {
   await entrar(page);
   await page.goto("/categorias");
-  await page.getByRole("link", { name: "+ Nova" }).click();
+  await page.getByRole("link", { name: "Nova categoria" }).click();
   const modal = page.getByRole("dialog", { name: "Nova categoria" });
   await expect(modal).toBeVisible();
 
   await page.mouse.click(5, 5);
   await expect(modal).toBeHidden();
 
-  await page.getByRole("link", { name: "+ Nova" }).click();
+  await page.getByRole("link", { name: "Nova categoria" }).click();
   await expect(modal).toBeVisible();
   await modal.getByLabel("Nome").fill("Rascunho");
   await page.mouse.click(5, 5);
