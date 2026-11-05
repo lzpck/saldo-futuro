@@ -7,7 +7,7 @@ import { formatDateBR, formatDayHeader, monthBounds, monthLabel, shiftMonth, tod
 import { formatBRL } from "@/lib/money";
 import { monthlyOutlook } from "@/lib/month-outlook";
 import { addDays, dailyBalances, lowestBalance, openItems } from "@/lib/projection";
-import { ACCOUNT_KIND_LABEL, benefitBalanceCents, isBenefit, isCard, isSavings, isSpendable, listAccounts, savedBalanceCents, totalBalanceCents } from "@/lib/repos/accounts";
+import { benefitBalanceCents, isBenefit, isCard, isSavings, isSpendable, listAccounts, savedBalanceCents, totalBalanceCents } from "@/lib/repos/accounts";
 import { cardInvoices } from "@/lib/repos/cards";
 import { listWithOccurrences } from "@/lib/repos/recurrences";
 import { listSchedule } from "@/lib/repos/schedule";
@@ -92,9 +92,6 @@ export default function DashboardPage() {
     .sort((a, b) => (a.inv?.dueDate ?? "9999").localeCompare(b.inv?.dueDate ?? "9999"));
   const soonest = dueCards.find((x) => x.inv);
   const withBalance = accounts.filter((a) => a.balanceCents !== 0);
-  const zeroed = accounts.filter((a) => a.balanceCents === 0);
-  const principal = [...withBalance].sort((a, b) => b.balanceCents - a.balanceCents)[0];
-  const sum = (list: typeof accounts) => list.reduce((s, a) => s + a.balanceCents, 0);
   const events = [...open.overdue, ...open.upcoming.filter((t) => t.date <= addDays(today, 7))].slice(0, 3);
   const overdueIds = new Set(open.overdue.map((t) => t.id));
   const spark = days.length > 1 ? sparkline(days.map((d) => d.endBalanceCents)) : null;
@@ -376,119 +373,6 @@ export default function DashboardPage() {
               })}
             </div>
           )}
-        </div>
-      </section>
-
-      <section className={PANEL}>
-        <div className="mb-5 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Contas &amp; patrimônio</h3>
-            <p className="mt-0.5 text-xs text-on-surface-variant">Benefício e reserva ficam fora do saldo disponível: são dinheiro de uso restrito ou guardado</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-lg border border-outline-variant/20 bg-surface-container-low px-2.5 py-1 text-xs text-on-surface-variant">
-              Disponível agora: <strong className="text-on-surface">{formatBRL(total)}</strong>
-            </span>
-            <span className="rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary">
-              Total geral: <strong>{formatBRL(total + saved + benefitBalanceCents(benefits))}</strong>
-            </span>
-          </div>
-        </div>
-        <div className="space-y-4">
-          {accounts.length > 0 && (
-            <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-primary" />
-                <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Contas correntes ativas</span>
-                <span className="text-xs text-on-surface-variant">(Disponível {formatBRL(sum(accounts))})</span>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {withBalance.map((a) => (
-                  <Link key={a.id} href={`/lancamentos?conta=${a.id}`} className="flex items-center justify-between rounded-xl border border-outline-variant/20 bg-surface-container-low p-3 transition hover:border-outline-variant/20">
-                    <div>
-                      <p className="text-xs font-semibold text-on-surface">{a.name}</p>
-                      <p className="text-[11px] text-on-surface-variant">{ACCOUNT_KIND_LABEL[a.kind]}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-on-surface">{formatBRL(a.balanceCents)}</p>
-                      <span className={`text-[10px] ${a === principal ? "text-primary" : "text-on-surface-variant"}`}>{a === principal ? "Principal" : "Ativa"}</span>
-                    </div>
-                  </Link>
-                ))}
-                {zeroed.length > 0 && (
-                  <details className="group rounded-xl border border-dashed border-outline-variant/20 bg-surface-container-low p-3 sm:col-span-2">
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-2 transition-colors">
-                      <span className="text-xs font-medium text-on-surface-variant">
-                        <span className="group-open:hidden">Mostrar</span>
-                        <span className="hidden group-open:inline">Ocultar</span> contas correntes zeradas ({zeroed.length})
-                      </span>
-                      <span className="truncate text-[11px] text-on-surface-variant">{zeroed.map((a) => a.name).join(", ")} ({formatBRL(0)})</span>
-                    </summary>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      {zeroed.map((a) => (
-                        <Link key={a.id} href={`/lancamentos?conta=${a.id}`} className="flex items-center justify-between rounded-lg border border-outline-variant/20 bg-surface-container-low px-3 py-2 text-xs text-on-surface-variant hover:border-outline-variant/20">
-                          {a.name}
-                          <span className="text-on-surface-variant">{formatBRL(0)}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  </details>
-                )}
-              </div>
-            </div>
-          )}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {benefits.length > 0 && (
-              <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">🍱</span>
-                    <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Benefícios &amp; vales</span>
-                  </div>
-                  <span className="text-xs font-bold text-on-surface">{formatBRL(benefitBalanceCents(benefits))}</span>
-                </div>
-                <div className="space-y-3">
-                  {benefits.map((a) => (
-                    <Link key={a.id} href={`/lancamentos?conta=${a.id}`} className="flex items-center justify-between rounded-xl border border-outline-variant/20 bg-surface-container-low p-3 transition hover:border-outline-variant/20">
-                      <div>
-                        <p className="text-xs font-semibold text-on-surface">{a.name}</p>
-                        <p className="text-[11px] text-on-surface-variant">{ACCOUNT_KIND_LABEL[a.kind]}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-on-surface">{formatBRL(a.balanceCents)}</p>
-                        <span className="text-[10px] text-secondary">Uso restrito</span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-            {savings.length > 0 && (
-              <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">🏦</span>
-                    <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Investimentos &amp; reservas</span>
-                  </div>
-                  <span className="text-xs font-bold text-primary">{formatBRL(saved)}</span>
-                </div>
-                <div className="space-y-3">
-                  {savings.map((a) => (
-                    <Link key={a.id} href={`/lancamentos?conta=${a.id}`} className="flex items-center justify-between rounded-xl border border-outline-variant/20 bg-surface-container-low p-3 transition hover:border-outline-variant/20">
-                      <div>
-                        <p className="text-xs font-semibold text-on-surface">{a.name}</p>
-                        <p className="text-[11px] text-on-surface-variant">{ACCOUNT_KIND_LABEL[a.kind]}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-primary">{formatBRL(a.balanceCents)}</p>
-                        <span className="text-[10px] text-primary">Guardado</span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </section>
 

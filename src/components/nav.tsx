@@ -17,20 +17,42 @@ const ITEMS = [
   { href: "/categorias", label: "Categorias", short: "Categorias", icon: "category" },
 ];
 
-/** Na barra inferior cabem 4 destinos mais "Mais" (o resto fica no menu). */
-const MOBILE_MAIN = ["/", "/lancamentos", "/agenda", "/contas"];
+/** Os 4 destinos fixos, no desktop e na barra inferior; o resto fica em "Mais". */
+const MAIN = ["/", "/lancamentos", "/agenda", "/contas"];
 
 export function Nav() {
   const pathname = usePathname();
   // A tela de um cartão pertence a Contas.
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href) || (href === "/contas" && pathname.startsWith("/cartoes"));
-  const more = ITEMS.filter((i) => !MOBILE_MAIN.includes(i.href));
+  const main = ITEMS.filter((i) => MAIN.includes(i.href));
+  const more = ITEMS.filter((i) => !MAIN.includes(i.href));
   const moreActive = more.some((i) => isActive(i.href));
   const tab = (active: boolean) =>
     `flex flex-1 flex-col items-center gap-0.5 py-2 font-label-sm text-label-sm transition-colors ${
       active ? "text-primary" : "text-on-surface-variant hover:text-on-surface"
     }`;
+
+  const sideLink = (i: (typeof ITEMS)[number]) => {
+    const active = isActive(i.href);
+    return (
+      <Link
+        key={i.href}
+        href={i.href}
+        aria-current={active ? "page" : undefined}
+        className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 transition-colors duration-150 ${
+          active
+            ? "bg-primary/10 font-semibold text-primary"
+            : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+        }`}
+      >
+        <span aria-hidden className={`${icon} text-[22px]`} style={{ fontVariationSettings: `"FILL" ${active ? 1 : 0}` }}>
+          {i.icon}
+        </span>
+        {i.label}
+      </Link>
+    );
+  };
 
   return (
     <>
@@ -40,26 +62,16 @@ export function Nav() {
           <Image src="/logo/horizontal-cor-escuro.svg" alt="Saldo Futuro" width={150} height={42} priority />
         </div>
         <nav aria-label="Principal" className="flex flex-1 flex-col gap-1 overflow-y-auto p-4 text-body-md font-medium">
-          {ITEMS.map((i) => {
-            const active = isActive(i.href);
-            return (
-              <Link
-                key={i.href}
-                href={i.href}
-                aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 transition-colors duration-150 ${
-                  active
-                    ? "bg-primary/10 font-semibold text-primary"
-                    : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
-                }`}
-              >
-                <span aria-hidden className={`${icon} text-[22px]`} style={{ fontVariationSettings: `"FILL" ${active ? 1 : 0}` }}>
-                  {i.icon}
-                </span>
-                {i.label}
-              </Link>
-            );
-          })}
+          {main.map(sideLink)}
+          {/* Fechado, salvo quando a tela atual é uma destas; volta a fechar ao navegar. */}
+          <details key={pathname} open={moreActive} className="group [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-3 rounded-xl px-3.5 py-2.5 text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-high hover:text-on-surface">
+              <span aria-hidden className={`${icon} text-[22px]`}>more_horiz</span>
+              Mais
+              <span aria-hidden className={`${icon} ml-auto text-[20px] transition-transform group-open:rotate-180`}>expand_more</span>
+            </summary>
+            <div className="mt-1 flex flex-col gap-1">{more.map(sideLink)}</div>
+          </details>
         </nav>
         <form action={logout} className="border-t border-surface-container-high p-4">
           <button className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-body-md font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface">
@@ -71,7 +83,7 @@ export function Nav() {
 
       {/* Mobile: barra inferior */}
       <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-[45] flex border-t border-surface-container-high bg-surface-container-low font-jakarta md:hidden">
-        {ITEMS.filter((i) => MOBILE_MAIN.includes(i.href)).map((i) => {
+        {main.map((i) => {
           const active = isActive(i.href);
           return (
             <Link key={i.href} href={i.href} aria-current={active ? "page" : undefined} className={tab(active)}>
