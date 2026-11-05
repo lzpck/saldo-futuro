@@ -1,9 +1,9 @@
 // Visão da tela de Contas: saldo projetado por conta, patrimônio líquido e ordenações.
 // Módulo puro (sem banco, sem UI).
 
-import { addDays } from "./projection";
+import { addDays, type DayBalance } from "./projection";
 
-/** Faturas que vencem até aqui entram no Saldo projetado da conta que as paga. */
+/** Faturas que vencem até aqui entram na checagem da conta que as paga. */
 export const SHORTFALL_HORIZON_DAYS = 30;
 
 export type InvoiceDue = { payAccountId: number; dueDate: string; remainingCents: number };
@@ -13,36 +13,47 @@ export type AccountOutlook = {
   balanceCents: number;
   /** Soma das faturas a pagar por esta conta dentro do horizonte (inclui as vencidas). */
   dueCents: number;
-  /** Saldo atual menos as faturas: o que sobra se todas forem pagas por ela. */
-  projectedCents: number;
-  /** Quanto falta para cobrir as faturas (0 quando o saldo basta). */
+  /** Menor saldo projetado nos dias de vencimento (já com as faturas pagas), ou null sem faturas no horizonte. */
+  lowestCents: number | null;
+  /** Quanto falta para pagar as faturas no pior vencimento (0 quando o saldo projetado basta). */
   shortfallCents: number;
-  /** Último vencimento considerado, ou null sem faturas no horizonte. */
-  coveredUntil: string | null;
+  /** Dia do pior vencimento (fatura vencida conta como hoje), ou null sem faturas no horizonte. */
+  shortfallDate: string | null;
 };
 
-/** Saldo projetado de cada conta: Saldo atual menos as faturas em aberto que ela paga e que vencem até o horizonte. */
+/**
+ * Checa cada conta contra suas faturas: o saldo projetado (`days` já traz receitas, despesas e o pagamento
+ * previsto das faturas) é lido nos dias de vencimento dentro do horizonte; vale o menor.
+ */
 export function accountOutlooks(
   accounts: { id: number; balanceCents: number }[],
   invoices: InvoiceDue[],
+  days: DayBalance[],
   today: string,
   horizonDays = SHORTFALL_HORIZON_DAYS,
 ): Map<number, AccountOutlook> {
   const limit = addDays(today, horizonDays);
+  const byDate = new Map(days.map((d) => [d.date, d.byAccount]));
   return new Map(
     accounts.map((a) => {
       const mine = invoices.filter((i) => i.payAccountId === a.id && i.remainingCents > 0 && i.dueDate <= limit);
       const dueCents = mine.reduce((sum, i) => sum + i.remainingCents, 0);
-      const projectedCents = a.balanceCents - dueCents;
+      // Fatura vencida pesa hoje, como todo Previsto atrasado na Projeção.
+      const dates = [...new Set(mine.map((i) => (i.dueDate < today ? today : i.dueDate)))].sort();
+      let worst: { date: string; cents: number } | null = null;
+      for (const date of dates) {
+        const cents = byDate.get(date)?.[a.id];
+        if (cents !== undefined && (worst === null || cents < worst.cents)) worst = { date, cents };
+      }
       return [
         a.id,
         {
           accountId: a.id,
           balanceCents: a.balanceCents,
           dueCents,
-          projectedCents,
-          shortfallCents: Math.max(-projectedCents, 0),
-          coveredUntil: mine.map((i) => i.dueDate).sort().at(-1) ?? null,
+          lowestCents: worst?.cents ?? null,
+          shortfallCents: worst ? Math.max(-worst.cents, 0) : 0,
+          shortfallDate: worst?.date ?? null,
         },
       ];
     }),

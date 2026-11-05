@@ -4,6 +4,7 @@ import { toggleAccountArchived, toggleAccountFavorite } from "@/app/actions/acco
 import { Amount } from "@/components/amount";
 import { PageHeader, PageShell, PANEL, PRIMARY_ACTION } from "@/components/page-shell";
 import {
+  SHORTFALL_HORIZON_DAYS,
   accountHue,
   accountOutlooks,
   closingText,
@@ -20,7 +21,7 @@ import { closingDateFor, cycleStart } from "@/lib/cards";
 import { daysBetween, formatDateBR, monthLabel, todayISO } from "@/lib/dates";
 import { getDb } from "@/lib/db/connection";
 import { formatBRL } from "@/lib/money";
-import { addDays } from "@/lib/projection";
+import { addDays, dailyBalances } from "@/lib/projection";
 import {
   ACCOUNT_KIND_LABEL,
   averageMonthlyExpenseCents,
@@ -39,6 +40,7 @@ import {
 import { cardInvoices } from "@/lib/repos/cards";
 import { listCategories } from "@/lib/repos/categories";
 import { listWithOccurrences } from "@/lib/repos/recurrences";
+import { listSchedule } from "@/lib/repos/schedule";
 
 const icon = "material-symbols-outlined";
 const SECONDARY = "text-body-sm font-body-sm text-on-surface-variant";
@@ -163,9 +165,9 @@ function BalanceCell({ account, outlook }: { account: AccountWithBalance; outloo
   return (
     <>
       <Amount cents={account.balanceCents} className="font-semibold" />
-      {outlook && outlook.dueCents > 0 && (
-        <p className={`text-xs ${outlook.projectedCents < 0 ? "text-error" : "text-on-surface-variant"}`}>
-          Após faturas: <Amount cents={outlook.projectedCents} />
+      {outlook && outlook.lowestCents !== null && (
+        <p className={`text-xs ${outlook.lowestCents < 0 ? "text-error" : "text-on-surface-variant"}`}>
+          Após faturas: <Amount cents={outlook.lowestCents} />
         </p>
       )}
     </>
@@ -184,6 +186,17 @@ export default function AccountsPage() {
   const archived = all.filter((a) => a.archived);
   const categoryName = new Map(listCategories(db).map((c) => [c.id, c.name]));
 
+  // Mesma agenda da Início: traz salário, despesas previstas e o pagamento previsto de cada fatura.
+  const days = cards.length
+    ? dailyBalances({
+        accounts: spendable.map((a) => ({ id: a.id, initialBalanceCents: a.initialBalanceCents })),
+        transactions: listSchedule(db, addDays(today, SHORTFALL_HORIZON_DAYS), today),
+        today,
+        from: today,
+        to: addDays(today, SHORTFALL_HORIZON_DAYS),
+      })
+    : [];
+
   // Faturas de cada cartão: base de tudo que a tela diz sobre cartões e sobre quem os paga.
   const base = cards.length ? listWithOccurrences(db, addDays(today, 400)) : [];
   const cardRows = cards.map((c) => {
@@ -193,7 +206,7 @@ export default function AccountsPage() {
   const invoicesDue: InvoiceDue[] = cardRows.flatMap(({ card, unpaid }) =>
     unpaid.map((i) => ({ payAccountId: card.payAccountId!, dueDate: i.dueDate, remainingCents: i.remainingCents })),
   );
-  const outlooks = accountOutlooks(spendable, invoicesDue, today);
+  const outlooks = accountOutlooks(spendable, invoicesDue, days, today);
   const shortfalls = spendable
     .map((a) => ({ account: a, outlook: outlooks.get(a.id)! }))
     .filter((x) => x.outlook.shortfallCents > 0);
@@ -245,7 +258,7 @@ export default function AccountsPage() {
             <p key={account.id} className="flex items-start gap-2 font-body-md text-body-md font-semibold">
               <span aria-hidden className={`${icon} text-[20px]`}>warning</span>
               <span>
-                {account.name}: faltam {formatBRL(outlook.shortfallCents)} para cobrir as faturas até {formatDateBR(outlook.coveredUntil!).slice(0, 5)}
+                {account.name}: faltam {formatBRL(outlook.shortfallCents)} para pagar as faturas até {formatDateBR(outlook.shortfallDate!).slice(0, 5)}
               </span>
             </p>
           ))}

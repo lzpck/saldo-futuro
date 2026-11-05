@@ -8,48 +8,68 @@ import {
   splitByBalance,
   SHORTFALL_HORIZON_DAYS,
 } from "./account-overview";
+import { addDays, type DayBalance } from "./projection";
 
 const inv = (payAccountId: number, dueDate: string, remainingCents: number) => ({ payAccountId, dueDate, remainingCents });
 
-describe("accountOutlooks (saldo projetado por conta)", () => {
+describe("accountOutlooks (falta para pagar as faturas, com a projeção)", () => {
   const today = "2026-10-11";
+  // Saldo de fim de dia de cada conta, de hoje até o horizonte; cada `changes` vale a partir do dia dado.
+  const days = (start: Record<number, number>, changes: [string, Record<number, number>][] = []): DayBalance[] =>
+    Array.from({ length: SHORTFALL_HORIZON_DAYS + 1 }, (_, n) => {
+      const date = addDays(today, n);
+      const byAccount = { ...start };
+      for (const [from, values] of changes) if (date >= from) Object.assign(byAccount, values);
+      return { date, phase: n === 0 ? "hoje" : "futuro", endBalanceCents: 0, byAccount };
+    });
 
-  it("desconta as faturas que a conta paga e vencem no horizonte", () => {
-    const o = accountOutlooks(
-      [{ id: 1, balanceCents: 66_431 }],
-      [inv(1, "2026-11-07", 100_000), inv(1, "2026-11-10", 71_041)],
-      today,
-    ).get(1)!;
+  it("lê o saldo projetado no vencimento e fica com o pior", () => {
+    // Pagamentos previstos já estão no saldo: 07/11 deixa -1.000,00 e 10/11 deixa -1.046,10.
+    const d = days({ 1: 66_431 }, [["2026-11-07", { 1: -100_000 }], ["2026-11-10", { 1: -104_610 }]]);
+    const o = accountOutlooks([{ id: 1, balanceCents: 66_431 }], [inv(1, "2026-11-07", 100_000), inv(1, "2026-11-10", 71_041)], d, today).get(1)!;
     expect(o.dueCents).toBe(171_041);
-    expect(o.projectedCents).toBe(66_431 - 171_041);
+    expect(o.lowestCents).toBe(-104_610);
     expect(o.shortfallCents).toBe(104_610);
-    expect(o.coveredUntil).toBe("2026-11-10");
+    expect(o.shortfallDate).toBe("2026-11-10");
+  });
+
+  it("salário que cai antes do vencimento cobre a fatura: sem falta", () => {
+    // Saldo 66,43; salário em 05/11; faturas pagas em 10/11 deixam 8.000,00.
+    const d = days({ 1: 6_643 }, [["2026-11-05", { 1: 900_000 }], ["2026-11-10", { 1: 800_000 }]]);
+    const o = accountOutlooks([{ id: 1, balanceCents: 6_643 }], [inv(1, "2026-11-10", 100_000)], d, today).get(1)!;
+    expect(o.lowestCents).toBe(800_000);
+    expect(o.shortfallCents).toBe(0);
+  });
+
+  it("salário depois do vencimento não salva: a falta aparece", () => {
+    const d = days({ 1: 6_643 }, [["2026-11-10", { 1: -93_357 }], ["2026-11-20", { 1: 900_000 }]]);
+    const o = accountOutlooks([{ id: 1, balanceCents: 6_643 }], [inv(1, "2026-11-10", 100_000)], d, today).get(1)!;
+    expect(o.shortfallCents).toBe(93_357);
+    expect(o.shortfallDate).toBe("2026-11-10");
   });
 
   it("ignora faturas depois do horizonte e de outras contas", () => {
+    const d = days({ 1: 5_000, 2: 0 }, [["2026-10-20", { 2: -1_000 }]]);
     const o = accountOutlooks(
       [{ id: 1, balanceCents: 5_000 }, { id: 2, balanceCents: 0 }],
       [inv(1, "2027-03-01", 99_900), inv(2, "2026-10-20", 1_000)],
+      d,
       today,
     );
-    expect(o.get(1)).toMatchObject({ dueCents: 0, projectedCents: 5_000, shortfallCents: 0, coveredUntil: null });
+    expect(o.get(1)).toMatchObject({ dueCents: 0, lowestCents: null, shortfallCents: 0, shortfallDate: null });
     expect(o.get(2)).toMatchObject({ dueCents: 1_000, shortfallCents: 1_000 });
   });
 
-  it("fatura vencida e não paga entra", () => {
-    const o = accountOutlooks([{ id: 1, balanceCents: 0 }], [inv(1, "2026-10-01", 500)], today).get(1)!;
+  it("fatura vencida e não paga pesa hoje", () => {
+    const d = days({ 1: -500 });
+    const o = accountOutlooks([{ id: 1, balanceCents: 0 }], [inv(1, "2026-10-01", 500)], d, today).get(1)!;
     expect(o.dueCents).toBe(500);
-  });
-
-  it("saldo que cobre as faturas não tem falta", () => {
-    const o = accountOutlooks([{ id: 1, balanceCents: 10_000 }], [inv(1, "2026-10-20", 4_000)], today).get(1)!;
-    expect(o.projectedCents).toBe(6_000);
-    expect(o.shortfallCents).toBe(0);
+    expect(o.shortfallDate).toBe(today);
   });
 
   it("o horizonte padrão é de 30 dias", () => {
     expect(SHORTFALL_HORIZON_DAYS).toBe(30);
-    const edge = accountOutlooks([{ id: 1, balanceCents: 0 }], [inv(1, "2026-11-10", 1), inv(1, "2026-11-11", 1)], today).get(1)!;
+    const edge = accountOutlooks([{ id: 1, balanceCents: 0 }], [inv(1, "2026-11-10", 1), inv(1, "2026-11-11", 1)], days({ 1: 0 }), today).get(1)!;
     expect(edge.dueCents).toBe(1); // 11/11 está a 31 dias
   });
 });
