@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FormLink } from "@/components/form-link";
 import { PageHeader, PageShell, PANEL, PRIMARY_ACTION } from "@/components/page-shell";
+import { dailyAllowance } from "@/lib/daily-allowance";
 import { getDb } from "@/lib/db/connection";
 import { formatDateBR, formatDayHeader, monthBounds, monthLabel, todayISO } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
@@ -58,6 +59,7 @@ export default function DashboardPage() {
   const nextInvoice = new Map(cards.map((c) => [c.id, invoicesByCard.get(c.id)!.find((i) => i.remainingCents > 0)]));
   const endOfMonth = days.find((d) => d.date === monthEnd) ?? days.at(-1);
   const low = lowestBalance(days);
+  const allowance = dailyAllowance(days, monthEnd);
 
   if (everything.length === 0) {
     return (
@@ -169,6 +171,24 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {allowance && (
+        <section className={`${PANEL} flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1`} aria-label="Pode gastar por dia">
+          <div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Pode gastar por dia</span>
+            <p data-testid="pode-gastar" className={`text-4xl font-extrabold tracking-tight md:text-5xl ${allowance.perDayCents > 0 ? "text-on-surface" : "text-error"}`}>
+              {formatBRL(allowance.perDayCents)}
+            </p>
+          </div>
+          <p className="text-xs text-on-surface-variant">
+            {allowance.lowestCents > 0 ? (
+              <>até {shortDate(allowance.untilDate)} · menor saldo previsto {formatBRL(allowance.lowestCents)} em {shortDate(allowance.lowestDate)}</>
+            ) : (
+              <>o saldo previsto chega a {formatBRL(allowance.lowestCents)} em {shortDate(allowance.lowestDate)}</>
+            )}
+          </p>
         </section>
       )}
 
