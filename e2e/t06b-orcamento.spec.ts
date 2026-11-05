@@ -51,7 +51,7 @@ test("definir o limite: vale no mês e nos seguintes, não nos anteriores", asyn
   await expect(bloco(page)).toContainText("Sem limite definido");
 });
 
-test("gastar até estourar: atenção, aviso ao salvar e alerta no Resumo", async ({ page }) => {
+test("gastar até estourar: atenção e aviso ao salvar", async ({ page }) => {
   await entrar(page);
 
   await despesa(page, "Compra 1 t06b", "85,00");
@@ -66,11 +66,6 @@ test("gastar até estourar: atenção, aviso ao salvar e alerta no Resumo", asyn
   await page.goto(`/orcamento?mes=${MES}`);
   await expect(bloco(page)).toContainText("estourou em R$ 5,00");
   await expect(bloco(page).getByText("Estourou", { exact: false }).first()).toBeVisible();
-
-  await page.goto("/");
-  const resumo = page.getByRole("region", { name: "Orçamento do mês" });
-  await expect(resumo).toContainText(CATEGORIA);
-  await expect(resumo).toContainText("Estourou");
 });
 
 test("remover o limite (0) interrompe a herança sem mexer nos meses anteriores", async ({ page }) => {

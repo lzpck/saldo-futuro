@@ -1,15 +1,11 @@
 import Link from "next/link";
 import { FormLink } from "@/components/form-link";
 import { PageHeader, PageShell, PANEL, PRIMARY_ACTION } from "@/components/page-shell";
-import { LEVEL } from "@/components/budget-bar";
-import { OpenInvoice } from "@/components/open-invoice";
-import { TransactionRow } from "@/components/transaction-list";
 import { getDb } from "@/lib/db/connection";
-import { formatDateBR, formatDayHeader, monthBounds, monthLabel, shiftMonth, todayISO } from "@/lib/dates";
+import { formatDateBR, formatDayHeader, monthBounds, monthLabel, todayISO } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
 import { addDays, dailyBalances, lowestBalance, openItems } from "@/lib/projection";
 import { ACCOUNT_KIND_LABEL, benefitBalanceCents, isBenefit, isCard, isSavings, isSpendable, listAccounts, savedBalanceCents, totalBalanceCents } from "@/lib/repos/accounts";
-import { monthBudgets } from "@/lib/repos/budgets";
 import { cardInvoices } from "@/lib/repos/cards";
 import { listWithOccurrences } from "@/lib/repos/recurrences";
 import { listSchedule } from "@/lib/repos/schedule";
@@ -24,7 +20,6 @@ const weekday = (iso: string) => {
   return w.charAt(0).toUpperCase() + w.slice(1);
 };
 const shortDate = (iso: string) => formatDateBR(iso).slice(0, 5);
-const initials = (name: string) => name.replace(/[^\p{L}\p{N} ]/gu, "").split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 /** Valor com o sinal do fluxo: despesa negativa, receita positiva, transferência neutra. */
 const flow = (t: Transaction) => (t.kind === "despesa" ? -t.amountCents : t.amountCents);
 
@@ -39,14 +34,9 @@ export default function DashboardPage() {
   const saved = savedBalanceCents(savings);
   const today = todayISO();
   const month = today.slice(0, 7);
-  const prevMonth = shiftMonth(month, -1);
   const monthTx = listTransactions(db, { from: `${month}-01`, to: `${month}-31` }).filter((t) => t.status === "efetivado");
   const income = monthTx.filter((t) => t.kind === "receita").reduce((s, t) => s + t.amountCents, 0);
   const expense = monthTx.filter((t) => t.kind === "despesa").reduce((s, t) => s + t.amountCents, 0);
-  const prevExpense = listTransactions(db, { from: `${prevMonth}-01`, to: `${prevMonth}-${today.slice(8)}` })
-    .filter((t) => t.status === "efetivado" && t.kind === "despesa")
-    .reduce((s, t) => s + t.amountCents, 0);
-  const recent = listTransactions(db, { status: "efetivado", limit: 8 });
 
   const { to: monthEnd } = monthBounds(month);
   const horizon = 14;
@@ -66,25 +56,6 @@ export default function DashboardPage() {
   const cardBase = cards.length ? listWithOccurrences(db, addDays(today, 400)) : [];
   const invoicesByCard = new Map(cards.map((c) => [c.id, cardInvoices(db, c, cardBase, today)]));
   const nextInvoice = new Map(cards.map((c) => [c.id, invoicesByCard.get(c.id)!.find((i) => i.remainingCents > 0)]));
-  // Contas em aberto: o pagamento previsto vira a fatura expansível; a próxima de cada cartão que vence depois do horizonte fica à parte.
-  const invoiceOf = (t: Transaction) =>
-    t.invoiceCardId === null ? undefined : invoicesByCard.get(t.invoiceCardId)?.find((i) => i.closingDate === t.invoiceClosing);
-  const openRow = (t: Transaction) => {
-    const inv = invoiceOf(t);
-    const card = cards.find((c) => c.id === t.invoiceCardId);
-    return inv && card?.closingDay != null ? (
-      <OpenInvoice key={t.id} inv={inv} cardName={card.name} closingDay={card.closingDay} today={today} canPay />
-    ) : (
-      <TransactionRow key={t.id} t={t} actions />
-    );
-  };
-  const farLimit = addDays(today, horizon);
-  const laterInvoices = cards.flatMap((c) => {
-    const inv = nextInvoice.get(c.id);
-    return inv && inv.dueDate > farLimit && c.closingDay !== null ? [{ inv, card: c, closingDay: c.closingDay }] : [];
-  });
-  const budgets = monthBudgets(db, month, today).filter((i) => i.status);
-  const nearLimit = [...budgets].sort((a, b) => b.status!.projectedPercent - a.status!.projectedPercent).slice(0, 2);
   const endOfMonth = days.find((d) => d.date === monthEnd) ?? days.at(-1);
   const low = lowestBalance(days);
 
@@ -109,15 +80,12 @@ export default function DashboardPage() {
     .map((c) => ({ card: c, inv: nextInvoice.get(c.id) }))
     .sort((a, b) => (a.inv?.dueDate ?? "9999").localeCompare(b.inv?.dueDate ?? "9999"));
   const soonest = dueCards.find((x) => x.inv);
-  const openCount = dueCards.filter((x) => x.inv).length;
-  const zeroCount = dueCards.length - openCount;
   const withBalance = accounts.filter((a) => a.balanceCents !== 0);
   const zeroed = accounts.filter((a) => a.balanceCents === 0);
   const principal = [...withBalance].sort((a, b) => b.balanceCents - a.balanceCents)[0];
   const sum = (list: typeof accounts) => list.reduce((s, a) => s + a.balanceCents, 0);
   const events = [...open.overdue, ...open.upcoming.filter((t) => t.date <= addDays(today, 7))].slice(0, 3);
   const overdueIds = new Set(open.overdue.map((t) => t.id));
-  const delta = prevExpense > 0 ? Math.round(((expense - prevExpense) / prevExpense) * 100) : null;
   const spark = days.length > 1 ? sparkline(days.map((d) => d.endBalanceCents)) : null;
   
   return (
@@ -309,7 +277,7 @@ export default function DashboardPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <div className={`${PANEL} lg:col-span-8`}>
+        <div className={`${PANEL} lg:col-span-12`}>
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-headline-md text-headline-md text-on-surface">Próximos 7 dias (Agenda financeira)</h3>
             <Link href="/agenda" className="text-xs text-primary hover:underline">
@@ -350,178 +318,7 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-
-        <div className={`${PANEL} flex flex-col justify-between lg:col-span-4`}>
-          <div>
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="font-headline-md text-headline-md text-on-surface">Tendência &amp; comparativo</h3>
-              <span className="text-[10px] text-on-surface-variant">vs. {monthName(prevMonth)}</span>
-            </div>
-            <p className="text-xs leading-relaxed text-on-surface-variant">
-              {delta === null ? (
-                "Sem despesas no mês anterior para comparar."
-              ) : (
-                <>
-                  Você gastou{" "}
-                  <span className={`font-semibold ${delta <= 0 ? "text-primary" : "text-error"}`}>
-                    {Math.abs(delta)}% {delta <= 0 ? "a menos" : "a mais"}
-                  </span>{" "}
-                  até este mesmo dia do mês anterior.
-                </>
-              )}
-            </p>
-            <div className="mt-4">
-              <div role="region" aria-labelledby="orcamento" className="space-y-3">
-                <h4 id="orcamento" className="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                  Orçamento do mês
-                </h4>
-                {nearLimit.length === 0 && <p className="text-xs text-on-surface-variant">Nenhum limite definido para este mês.</p>}
-                {nearLimit.map((i) => {
-                  const pct = Math.min(i.status!.percent, 100);
-                  const lv = LEVEL[i.status!.projectedLevel];
-                  return (
-                    <div key={i.category.id}>
-                      <div className="mb-1 flex justify-between text-xs">
-                        <span className="text-on-surface">
-                          <span aria-hidden>{i.category.icon} </span>
-                          {i.category.name}
-                        </span>
-                        <span className="text-[11px] text-on-surface-variant">
-                          {formatBRL(i.spentCents)} / {formatBRL(i.limitCents ?? 0)}
-                        </span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-surface-container-high">
-                        <div className={`h-full rounded-full ${LEVEL[i.status!.level].bar}`} style={{ width: `${pct}%` }} />
-                      </div>
-                      {i.status!.projectedLevel !== "ok" && (
-                        <p className={`mt-1 text-[11px] ${lv.text}`}>
-                          <span aria-hidden>{lv.icon} </span>
-                          {i.status!.level === "estourou" ? "Estourou" : i.status!.projectedLevel === "estourou" ? "Vai estourar" : "Atenção"}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 flex items-center justify-between border-t border-outline-variant/20 pt-3 text-[11px] text-on-surface-variant">
-            <span>Ritmo de economia:</span>
-            <span className={`font-medium ${delta === null ? "text-on-surface-variant" : delta <= 0 ? "text-primary" : "text-tertiary"}`}>
-              {delta === null ? "Sem base" : delta <= 0 ? "Dentro da meta" : "Acima do mês anterior"}
-            </span>
-          </div>
-        </div>
       </section>
-
-      <section className={PANEL} aria-labelledby="em-aberto">
-        <h3 id="em-aberto" className="font-headline-md text-headline-md text-on-surface">
-          Contas em aberto
-        </h3>
-        {open.overdue.length === 0 && open.upcoming.length === 0 && laterInvoices.length === 0 ? (
-          <p className="py-4 text-sm text-on-surface-variant">Tudo em dia: nada em atraso nem vencendo nos próximos {horizon} dias.</p>
-        ) : (
-          <>
-            {open.overdue.length > 0 && (
-              <div>
-                <h4 className="mt-2 text-xs font-semibold uppercase tracking-wide text-error">Em atraso ({open.overdue.length})</h4>
-                <ul className="divide-y divide-outline-variant/20">{open.overdue.map(openRow)}</ul>
-              </div>
-            )}
-            {open.upcoming.length > 0 && (
-              <div>
-                <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-                  Próximos {horizon} dias ({open.upcoming.length})
-                </h4>
-                <ul className="divide-y divide-outline-variant/20">{open.upcoming.map(openRow)}</ul>
-              </div>
-            )}
-            {laterInvoices.length > 0 && (
-              <div>
-                <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Faturas abertas</h4>
-                <ul className="divide-y divide-outline-variant/20">
-                  {laterInvoices.map(({ inv, card, closingDay }) => (
-                    <OpenInvoice key={`${card.id}-${inv.closingDate}`} inv={inv} cardName={card.name} closingDay={closingDay} today={today} canPay={false} />
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
-        )}
-      </section>
-
-      {cards.length > 0 && (
-        <section className={PANEL}>
-          <div className="mb-5 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-            <div>
-              <h3 className="font-headline-md text-headline-md text-on-surface">Faturas de cartão de crédito</h3>
-              <p className="mt-0.5 text-xs text-on-surface-variant">
-                Ordenadas cronologicamente por vencimento · Total a pagar: <strong className="font-semibold text-error">{formatBRL(-dueTotal)}</strong>
-              </p>
-            </div>
-            <span className="rounded-lg border border-outline-variant/20 bg-surface-container-low px-3 py-1 text-xs text-on-surface-variant">
-              {openCount} {openCount === 1 ? "fatura aberta" : "faturas abertas"}
-              {zeroCount > 0 && ` · ${zeroCount} ${zeroCount === 1 ? "zerada" : "zeradas"}`}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {dueCards.map(({ card, inv }) => {
-              const next = inv !== undefined && inv === soonest?.inv;
-              return (
-                <div
-                  key={card.id}
-                  className={`relative flex flex-col justify-between rounded-xl bg-surface-container-low p-4 transition-all ${
-                    next ? "border-2 border-tertiary/40 hover:border-tertiary" : inv ? "border border-outline-variant/20 hover:border-outline-variant/20" : "border border-outline-variant/20 opacity-80 hover:opacity-100"
-                  }`}
-                >
-                  {next && (
-                    <span className="absolute -top-2.5 right-3 rounded-full bg-tertiary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-on-primary">
-                      Próximo vencimento
-                    </span>
-                  )}
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-outline-variant/20 bg-surface-container-high text-xs font-bold text-on-surface">{initials(card.name)}</div>
-                      <div>
-                        <h4 className={`text-sm font-bold leading-tight ${inv ? "text-on-surface" : "text-on-surface-variant"}`}>{card.name}</h4>
-                        <p className={`text-[11px] ${next ? "font-medium text-tertiary" : "text-on-surface-variant"}`}>{inv ? `Vence em ${formatDateBR(inv.dueDate)}` : "Sem vencimento ativo"}</p>
-                      </div>
-                    </div>
-                    <div className="mt-4">
-                      <p className="text-[11px] text-on-surface-variant">Valor da fatura</p>
-                      <p className={`text-2xl tracking-tight ${inv ? "font-black text-error" : "font-bold text-on-surface-variant"}`}>{inv ? formatBRL(-inv.remainingCents) : formatBRL(0)}</p>
-                      {inv ? (
-                        <p className="mt-1 text-[11px] text-on-surface-variant">
-                          {inv.items.length} {inv.items.length === 1 ? "lançamento computado" : "lançamentos computados"}
-                        </p>
-                      ) : (
-                        <p className="mt-1 text-[11px] text-primary/90">Nenhum débito em aberto</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-4 flex items-center justify-between border-t border-outline-variant/20 pt-3">
-                    <span className="text-[10px] text-on-surface-variant">{ACCOUNT_KIND_LABEL.cartao}</span>
-                    {inv ? (
-                      <Link
-                        href={`/cartoes/${card.id}`}
-                        className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                          next ? "border-tertiary/40 bg-tertiary/10 text-tertiary hover:bg-tertiary/10" : "border-outline-variant/20 bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high"
-                        }`}
-                      >
-                        Pagar fatura
-                      </Link>
-                    ) : (
-                      <Link href={`/cartoes/${card.id}`} className="text-xs text-on-surface-variant hover:underline">
-                        Zerado
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       <section className={PANEL}>
         <div className="mb-5 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
@@ -633,87 +430,6 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        </div>
-      </section>
-
-      <section className={PANEL}>
-        <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-tertiary/40 bg-tertiary/10 text-tertiary">◧</div>
-            <div>
-              <h3 className="font-headline-md text-headline-md text-on-surface">
-                {budgets.length === 0 ? `Orçamento de ${monthName(month)} não configurado` : `Orçamento de ${monthName(month)}`}
-              </h3>
-              <p className="mt-1 max-w-xl text-xs text-on-surface-variant">
-                {budgets.length === 0
-                  ? "Definir limites por categoria impede surpresas nas faturas."
-                  : `${budgets.length} ${budgets.length === 1 ? "categoria com limite" : "categorias com limite"} neste mês.`}
-              </p>
-            </div>
-          </div>
-          <div className="flex w-full shrink-0 items-center gap-3 md:w-auto">
-            <Link
-              href={`/orcamento?mes=${month}`}
-              className="flex-1 rounded-xl bg-primary px-4 py-2 text-center text-xs font-bold text-on-primary shadow-md shadow-primary/20 transition-colors hover:opacity-90 md:flex-none"
-            >
-              {budgets.length === 0 ? "Definir limites de gastos" : "Ver orçamento"}
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <section className={PANEL}>
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Últimos lançamentos</h3>
-            <p className="mt-0.5 text-xs text-on-surface-variant">Extrato unificado de compras e reembolsos</p>
-          </div>
-          <Link href="/lancamentos" className="text-xs font-medium text-primary hover:underline">
-            Ver todos →
-          </Link>
-        </div>
-        <div className="divide-y divide-outline-variant/20 text-sm">
-          {recent.map((t) => {
-            const incoming = t.kind === "receita";
-            return (
-              <Link
-                key={t.id}
-                href={`/lancamentos/${t.id}`}
-                className={`flex items-center justify-between gap-4 rounded-lg px-2 py-3.5 transition-colors ${
-                  incoming ? "border-l-2 border-primary bg-primary/10 hover:bg-primary/10" : "hover:bg-surface-container-high"
-                }`}
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl border text-sm ${incoming ? "border-primary/30 bg-primary/10 text-primary" : "border-tertiary-container/20 bg-tertiary-container/10"}`}>
-                    {incoming ? "↩️" : t.categoryIcon ?? (t.kind === "transferencia" ? "⇄" : "↑")}
-                  </div>
-                  <div>
-                    <p className={`text-xs font-semibold sm:text-sm ${incoming ? "text-primary" : "text-on-surface"}`}>{t.description}</p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
-                      <span>{formatDateBR(t.date)}</span>
-                      {t.categoryName && (
-                        <>
-                          <span>•</span>
-                          <span className={`rounded px-2 text-[11px] ${incoming ? "border border-primary/30 bg-primary/10 font-medium text-primary" : "bg-surface-container-high text-on-surface-variant"}`}>{t.categoryName}</span>
-                        </>
-                      )}
-                      <span>•</span>
-                      <span>{t.accountName}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className={`text-sm md:text-base ${incoming ? "font-black text-primary" : "font-bold text-error"}`}>
-                    {incoming ? "+" : t.kind === "despesa" ? "-" : ""}
-                    {formatBRL(t.amountCents)}
-                  </span>
-                  <p className={`text-[10px] ${incoming ? "text-primary/80" : "text-on-surface-variant"}`}>
-                    {incoming ? "Entrada" : t.kind === "transferencia" ? "Transferência" : t.accountKind === "cartao" ? "Crédito" : "Débito"}
-                  </p>
-                </div>
-              </Link>
-            );
-          })}
         </div>
       </section>
 

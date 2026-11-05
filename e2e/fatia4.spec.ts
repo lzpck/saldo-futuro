@@ -71,13 +71,9 @@ test("compra no cartão não muda o saldo; entra na fatura do ciclo certo", asyn
 
   expect(await total(page)).toBe(before); // o dinheiro ainda não saiu
 
-  // O cartão no Resumo mostra a fatura e o vencimento calculados.
-  const tile = page.locator("h4", { hasText: "Cartão teste" }).locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]");
-  await expect(tile).toContainText(/R\$\s250,00/);
-  await expect(tile).toContainText(`Vence em ${brDate(DUE)}`);
-
   // A página do cartão mostra a fatura aberta com a compra.
-  await tile.getByRole("link", { name: "Pagar fatura" }).click();
+  await page.goto("/contas");
+  await cartaoLink(page).click();
   await expect(page.getByText("Em aberto nas faturas").locator("xpath=following-sibling::span[1]")).toHaveText(/R\$\s250,00/);
   const fatura = page.locator(`#fatura-${CLOSING}`);
   await expect(fatura).toContainText(`vence ${brDate(DUE)}`);

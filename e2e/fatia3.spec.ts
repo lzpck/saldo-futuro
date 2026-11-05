@@ -15,7 +15,6 @@ const offset = (days: number) => {
   return iso(d);
 };
 const month = (date: string) => date.slice(0, 7);
-const brDate = (date: string) => date.split("-").reverse().join("/");
 
 async function entrar(page: Page) {
   await page.goto("/login");
@@ -25,7 +24,6 @@ async function entrar(page: Page) {
 }
 
 const saldoTotal = (page: Page) => page.getByTestId("saldo-total");
-const emAberto = (page: Page) => page.getByRole("region", { name: "Contas em aberto" });
 const row = (page: Page, text: string) => page.locator("li", { hasText: text });
 const daySection = (page: Page, text: string) =>
   page.locator("section", { has: page.locator("li", { hasText: text }) });
@@ -56,15 +54,16 @@ test("criar recorrência mensal: entra na projeção e no painel, sem mexer no s
 
   await page.goto("/");
   await expect(saldoTotal(page)).toHaveText(/R\$\s3\.950,00/);
-  await expect(emAberto(page)).toContainText("Aluguel teste");
-  await expect(emAberto(page)).toContainText("Próximos 14 dias");
 });
 
 test("efetivar a ocorrência de hoje em diante: vira lançamento real e a próxima continua", async ({ page }) => {
   await entrar(page);
+  await page.goto(`/lancamentos?mes=${month(ALUGUEL)}`, { waitUntil: "networkidle" });
+  await Promise.all([
+    page.waitForResponse((r) => r.request().method() === "POST"),
+    page.getByRole("button", { name: "Efetivar Aluguel teste" }).click(),
+  ]);
   await page.goto("/");
-  await emAberto(page).getByRole("button", { name: "Efetivar Aluguel teste" }).click();
-  await expect(emAberto(page)).not.toContainText("Aluguel teste");
   await expect(saldoTotal(page)).toHaveText(/R\$\s2\.450,00/);
 
   // Não duplicou: no mês seguinte ainda há exatamente uma ocorrência virtual.
@@ -197,7 +196,7 @@ test("antecipar as parcelas efetiva tudo hoje e muda o saldo atual", async ({ pa
   await expect(saldoTotal(page)).toHaveText(/R\$\s2\.349,99/); // 2.450,00 - 100,01
 });
 
-test("atrasadas e vencimentos próximos aparecem no painel do Resumo", async ({ page }) => {
+test("atrasadas aparecem no Resumo e são efetivadas pela lista de Lançamentos", async ({ page }) => {
   await entrar(page);
   await page.goto("/lancamentos/novo");
   await page.getByLabel("Valor", { exact: true }).fill("20,00");
@@ -208,11 +207,11 @@ test("atrasadas e vencimentos próximos aparecem no painel do Resumo", async ({ 
   await page.waitForURL(/lancamentos\?mes/);
 
   await page.goto("/");
-  await expect(emAberto(page)).toContainText("Em atraso");
-  await expect(emAberto(page).locator("li", { hasText: "Boleto antigo" })).toContainText("Em atraso · 3 dias");
-  await expect(emAberto(page).locator("li", { hasText: "Internet" })).toBeVisible(); // amanhã, ainda do teste 2
-  await expect(emAberto(page)).toContainText(brDate(offset(1)));
+  const proximos = page.locator("section", { hasText: "Próximos 7 dias" });
+  await expect(proximos).toContainText("Em atraso");
+  await expect(proximos).toContainText("Boleto antigo");
 
-  await emAberto(page).getByRole("button", { name: "Efetivar Boleto antigo" }).click();
-  await expect(emAberto(page)).not.toContainText("Boleto antigo");
+  await page.goto("/lancamentos", { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Efetivar Boleto antigo" }).click();
+  await expect(page.locator("#hoje")).not.toContainText("Pendente de confirmação");
 });
