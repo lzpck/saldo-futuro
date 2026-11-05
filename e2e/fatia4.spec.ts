@@ -107,7 +107,7 @@ test("pagamento parcial abate a fatura e sai da conta", async ({ page }) => {
 
 test("pagar o restante pelo botão da lista quita a fatura", async ({ page }) => {
   await entrar(page);
-  await page.goto(`/lancamentos?mes=${DUE.slice(0, 7)}`);
+  await page.goto(`/lancamentos?mes=${DUE.slice(0, 7)}`, { waitUntil: "networkidle" });
   await expect(faturaPrevista(page)).toContainText(/R\$\s150,00/); // só o que falta
   await expect(row(page, "Fatura Cartão teste")).toHaveCount(2); // 100,00 já pago + 150,00 previsto
   await page.getByRole("button", { name: /Efetivar Fatura Cartão teste/ }).click();
@@ -122,6 +122,7 @@ test("pagar o restante pelo botão da lista quita a fatura", async ({ page }) =>
   const faturasPagas = page.locator("details", { hasText: "Faturas pagas" }).first(); // a fatura paga é outro <details>, dentro deste
   await expect(faturasPagas).toBeVisible();
   await faturasPagas.locator(":scope > summary").click();
+  await faturasPagas.locator("details").first().locator(":scope > summary").click(); // a fatura em si também começa fechada
   const itemPago = faturasPagas.locator("li", { hasText: "Mercado cartão" });
   await expect(itemPago).toBeVisible();
   await expect(itemPago.getByRole("button")).toHaveCount(0);
@@ -135,7 +136,7 @@ test("compra nova num ciclo já pago gera um pagamento só da diferença", async
   await page.getByLabel("Valor").fill("30,00");
   await page.getByLabel("Descrição").fill("Esquecida");
   await page.getByRole("button", { name: "Adicionar lançamento" }).click();
-  await page.waitForURL(/lancamentos\?mes/);
+  await page.waitForURL(/cartoes\/\d+/);
 
   await page.goto(`/lancamentos?mes=${DUE.slice(0, 7)}`);
   await expect(faturaPrevista(page)).toContainText(/R\$\s30,00/);

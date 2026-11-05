@@ -50,7 +50,7 @@ test("conta e cartão com limite: o saldo que não cobre a fatura vira aviso", a
 
   await page.goto("/contas");
   await expect(page.getByRole("alert").filter({ hasText: "faltam" })).toContainText(
-    new RegExp(`Conta t09: faltam R\\$\\s200,00 para cobrir as faturas até ${brShort(VENCIMENTO)}`),
+    new RegExp(`Conta t09: faltam R\\$\\s200,00 para pagar as faturas até ${brShort(VENCIMENTO)}`),
   );
   const conta = page.locator("li", { hasText: "Conta t09" });
   await expect(conta).toContainText(/Após faturas:\s*-R\$\s200,00/);

@@ -78,7 +78,7 @@ test("a estimativa entra na projeção e aparece na agenda e na página da recor
 
 test("Paguei leva à página da ocorrência com a estimativa pré-preenchida, sem pagar em silêncio", async ({ page }) => {
   await entrar(page);
-  await page.goto(`/lancamentos?mes=${month(LUZ)}`);
+  await page.goto(`/lancamentos?mes=${month(LUZ)}`, { waitUntil: "networkidle" });
   await row(page, "Luz t05").getByRole("link", { name: "Efetivar Luz t05" }).click();
 
   // A primeira visita compila a rota no dev server, então vale um prazo maior.
