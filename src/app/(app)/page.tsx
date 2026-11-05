@@ -3,8 +3,9 @@ import { FormLink } from "@/components/form-link";
 import { PageHeader, PageShell, PANEL, PRIMARY_ACTION } from "@/components/page-shell";
 import { dailyAllowance } from "@/lib/daily-allowance";
 import { getDb } from "@/lib/db/connection";
-import { formatDateBR, formatDayHeader, monthBounds, monthLabel, todayISO } from "@/lib/dates";
+import { formatDateBR, formatDayHeader, monthBounds, monthLabel, shiftMonth, todayISO } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
+import { monthlyOutlook } from "@/lib/month-outlook";
 import { addDays, dailyBalances, lowestBalance, openItems } from "@/lib/projection";
 import { ACCOUNT_KIND_LABEL, benefitBalanceCents, isBenefit, isCard, isSavings, isSpendable, listAccounts, savedBalanceCents, totalBalanceCents } from "@/lib/repos/accounts";
 import { cardInvoices } from "@/lib/repos/cards";
@@ -43,8 +44,8 @@ export default function DashboardPage() {
   const horizon = 14;
   // A projeção olha sempre 30 dias à frente, a partir de hoje.
   const projectionEnd = addDays(today, PROJECTION_DAYS);
-  const reach = projectionEnd;
-  const scheduled = listSchedule(db, reach, today);
+  const outlookMonths = 6;
+  const scheduled = listSchedule(db, monthBounds(shiftMonth(month, outlookMonths - 1)).to, today);
   const open = openItems(scheduled, today, horizon);
   const days = dailyBalances({
     accounts: accounts.map((a) => ({ id: a.id, initialBalanceCents: a.initialBalanceCents })),
@@ -60,6 +61,14 @@ export default function DashboardPage() {
   const endOfMonth = days.find((d) => d.date === monthEnd) ?? days.at(-1);
   const low = lowestBalance(days);
   const allowance = dailyAllowance(days, monthEnd);
+  const outlook = monthlyOutlook({
+    accounts: accounts.map((a) => ({ id: a.id, initialBalanceCents: a.initialBalanceCents })),
+    transactions: scheduled,
+    today,
+    months: outlookMonths,
+    scope: new Set(accounts.map((a) => a.id)),
+    cardIds: new Set(cards.map((c) => c.id)),
+  });
 
   if (everything.length === 0) {
     return (
@@ -191,6 +200,36 @@ export default function DashboardPage() {
           </p>
         </section>
       )}
+
+      <section className={`${PANEL} overflow-x-auto`} aria-label="Próximos 6 meses">
+        <table className="w-full min-w-[30rem] text-sm">
+          <thead>
+            <tr className="text-right text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
+              <th className="py-1 text-left font-semibold">Mês</th>
+              <th className="py-1 font-semibold">Entrou</th>
+              <th className="py-1 font-semibold">Saiu</th>
+              <th className="py-1 font-semibold">Sobra</th>
+              <th className="py-1 font-semibold">%</th>
+              <th className="py-1 font-semibold">Saldo final</th>
+            </tr>
+          </thead>
+          <tbody>
+            {outlook.map((r, i) => (
+              <tr key={r.month} className={`border-t border-outline-variant/20 text-right ${i === 0 ? "font-semibold" : ""}`}>
+                <th scope="row" className="py-2 text-left font-medium">
+                  {monthName(r.month)}
+                  {r.estimated && <span className="ml-1.5 text-[10px] font-normal text-on-surface-variant">estimado</span>}
+                </th>
+                <td className="py-2">{formatBRL(r.entrouCents)}</td>
+                <td className="py-2">{formatBRL(r.saiuCents)}</td>
+                <td className={`py-2 ${r.sobraCents < 0 ? "text-error" : ""}`}>{formatBRL(r.sobraCents)}</td>
+                <td className={`py-2 ${r.sobraCents < 0 ? "text-error" : ""}`}>{r.percent === null ? "—" : `${r.percent}%`}</td>
+                <td className={`py-2 ${r.endBalanceCents < 0 ? "text-error" : ""}`}>{formatBRL(r.endBalanceCents)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
 
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         <div className={`${PANEL} flex flex-col justify-between lg:col-span-8`}>
