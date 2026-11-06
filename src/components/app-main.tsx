@@ -1,12 +1,16 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { usePathname, useSelectedLayoutSegments } from "next/navigation";
+import { useState, type ReactNode } from "react";
 
 /** As telas principais ocupam a largura toda (cada uma com seu `PageShell`); detalhes e formulários ficam numa coluna central. */
 export function AppMain({ notice, children }: { notice: ReactNode; children: ReactNode }) {
   const path = usePathname();
-  const wide = path === "/" || path === "/lancamentos" || path === "/relatorios" || path === "/agenda" || path === "/contas" || path === "/categorias" || path === "/orcamento";
+  // Com um modal aberto a URL já é a do formulário (ex.: /lancamentos/5), mas a tela de trás não mudou: mantém a largura dela.
+  const inModal = useSelectedLayoutSegments("modal")[1]?.startsWith("(...)") ?? false;
+  const isWide = path === "/" || path === "/lancamentos" || path === "/relatorios" || path === "/agenda" || path === "/contas" || path === "/categorias" || path === "/orcamento";
+  const [wide, setWide] = useState(isWide);
+  if (!inModal && wide !== isWide) setWide(isWide);
   if (wide) {
     return (
       <main className="pb-28 md:ml-64 md:pb-10">

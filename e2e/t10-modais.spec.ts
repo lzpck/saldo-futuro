@@ -102,6 +102,7 @@ test("lançamento: novo em modal volta à lista de origem e a edição também a
 
   await linha.getByRole("link", { name: /Lanche t10/ }).first().click();
   await expect(page.getByRole("dialog", { name: "Editar lançamento" })).toBeVisible();
+  await expect(page.locator("main")).not.toHaveClass(/max-w-4xl/); // a tela de trás não estreita só porque a URL virou /lancamentos/ID
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
