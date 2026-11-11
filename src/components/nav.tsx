@@ -11,7 +11,7 @@ const ITEMS = [
   { href: "/", label: "Resumo Geral", short: "Resumo", icon: "space_dashboard" },
   { href: "/lancamentos", label: "Lançamentos", short: "Lançamentos", icon: "receipt_long" },
   { href: "/relatorios", label: "Relatórios", short: "Relatórios", icon: "pie_chart" },
-  { href: "/orcamento", label: "Orçamento", short: "Orçamento", icon: "savings" },
+  { href: "/revisao", label: "Revisão de gastos", short: "Revisão", icon: "savings" },
   { href: "/agenda", label: "Agenda & Vencimentos", short: "Agenda", icon: "event_repeat" },
   { href: "/contas", label: "Contas Bancárias", short: "Contas", icon: "account_balance" },
   { href: "/categorias", label: "Categorias", short: "Categorias", icon: "category" },

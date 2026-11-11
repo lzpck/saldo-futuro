@@ -7,7 +7,6 @@ import { getDb } from "@/lib/db/connection";
 import { todayISO } from "@/lib/dates";
 import { addMonthsClamped } from "@/lib/recurrence";
 import { dateField, idField, intField, optionalDateField, parseTransactionForm, type FormState } from "@/lib/forms";
-import { budgetWarnings } from "@/lib/repos/budgets";
 import { createInstallmentPurchase } from "@/lib/repos/installments";
 import {
   createRecurrence,
@@ -29,9 +28,6 @@ export async function saveTransaction(_: FormState, fd: FormData): Promise<FormS
   const db = getDb();
   // Compra parcelada em andamento: a data é a da parcela 1, mas o que se cria começa na parcela inicial.
   const month = (repeat.type === "parcelado" ? addMonthsClamped(data.date, repeat.firstNo - 1) : data.date).slice(0, 7);
-  const warnsBudget = data.kind === "despesa" && data.categoryId != null;
-  // O aviso é só para quem faz estourar: se o limite já estava estourado antes, não repete.
-  const alreadyOver = warnsBudget && budgetWarnings(db, data.categoryId!, month, todayISO()).length > 0;
 
   try {
     const id = intField(fd, "id");
@@ -81,29 +77,9 @@ export async function saveTransaction(_: FormState, fd: FormData): Promise<FormS
   }
 
   refreshAll();
-  // Aviso discreto (não bloqueia): qualquer tela de destino o exibe, recalculando o orçamento da categoria.
-  const notice =
-    warnsBudget && !alreadyOver && budgetWarnings(db, data.categoryId!, month, todayISO()).length > 0
-      ? `${data.categoryId}_${month}`
-      : undefined;
-  const next = afterSaveUrl(fd.get("voltar"), month, notice);
+  const next = afterSaveUrl(fd.get("voltar"), month);
   if (fd.get("modal")) return { done: true, next };
   redirect(next);
-}
-
-export type BudgetNotice = { categoryName: string; exceeded: boolean; usedCents: number; limitCents: number; month: string };
-
-/** Avisos de orçamento da categoria no mês, para a faixa exibida após salvar um lançamento. */
-export async function loadBudgetNotice(categoryId: number, month: string): Promise<BudgetNotice[]> {
-  await verifySession();
-  if (!Number.isInteger(categoryId) || categoryId <= 0 || !/^\d{4}-\d{2}$/.test(month)) return [];
-  return budgetWarnings(getDb(), categoryId, month, todayISO()).map((w) => ({
-    categoryName: w.category.name,
-    exceeded: w.status!.level === "estourou",
-    usedCents: w.spentCents + w.plannedCents,
-    limitCents: w.limitCents!,
-    month,
-  }));
 }
 
 /** Efetiva um lançamento gravado (id) ou uma ocorrência virtual (recurrenceId + occurrenceDate). */

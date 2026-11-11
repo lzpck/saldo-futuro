@@ -312,6 +312,7 @@ describe("migração", () => {
     db.exec(`
       DROP TABLE account_categories;
       DROP TABLE budgets;
+      DROP TABLE expense_classes;
       DROP TABLE recurrence_history_seed;
       ALTER TABLE recurrences DROP COLUMN is_variable;
       ALTER TABLE recurrences DROP COLUMN series_id;
@@ -323,7 +324,7 @@ describe("migração", () => {
     db.pragma("user_version = 3");
     migrate(db);
 
-    expect(db.pragma("user_version", { simple: true })).toBe(10);
+    expect(db.pragma("user_version", { simple: true })).toBe(11);
     expect(getRecurrence(db, id)).toMatchObject({ seriesId: id, isVariable: false, description: "Luz" });
     expect(getRecurrence(db, tx)).toMatchObject({ seriesId: tx, isVariable: false, amountCents: 150_000 });
     expect(listTransactions(db)).toHaveLength(1);

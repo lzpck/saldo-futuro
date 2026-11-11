@@ -199,6 +199,15 @@ const MIGRATIONS: Migration[] = [
   (db) => {
     db.exec(`ALTER TABLE installment_purchases ADD COLUMN first_no INTEGER NOT NULL DEFAULT 1 CHECK (first_no >= 1);`);
   },
+  // Revisão de gastos: nível dado pelo usuário a um grupo de gastos do cartão (chave em src/lib/expense-review.ts).
+  (db) => {
+    db.exec(`
+      CREATE TABLE expense_classes (
+        key TEXT PRIMARY KEY,
+        level TEXT NOT NULL CHECK (level IN ('dispensavel', 'reduzivel', 'essencial'))
+      );
+    `);
+  },
 ];
 
 export function migrate(db: Database.Database): void {

@@ -23,14 +23,7 @@ export function withReturnTo(href: string, origin: string): string {
   return `${href}${href.includes("?") ? "&" : "?"}${new URLSearchParams({ [RETURN_PARAM]: origin })}`;
 }
 
-/**
- * Destino após salvar: a origem, ou a lista de Lançamentos no mês do lançamento quando não há origem válida.
- * O aviso de orçamento opcional substitui um que a origem já trouxesse.
- */
-export function afterSaveUrl(origin: unknown, month: string, budgetNotice?: string): string {
-  const valid = parseReturnTo(origin);
-  const url = new URL(valid ?? `${FALLBACK}?${new URLSearchParams({ mes: month })}`, "http://app");
-  url.searchParams.delete("orcamento");
-  if (budgetNotice) url.searchParams.set("orcamento", budgetNotice);
-  return `${url.pathname}${url.search}${url.hash}`;
+/** Destino após salvar: a origem, ou a lista de Lançamentos no mês do lançamento quando não há origem válida. */
+export function afterSaveUrl(origin: unknown, month: string): string {
+  return parseReturnTo(origin) ?? `${FALLBACK}?${new URLSearchParams({ mes: month })}`;
 }

@@ -5,7 +5,7 @@ import {
   intField,
   InvalidRequestError,
   parseAccountForm,
-  parseBudgetForm,
+  parseExpenseClassForm,
   parseCategoryForm,
   parsePurchaseEditForm,
   parseRecurrenceEditForm,
@@ -213,23 +213,18 @@ describe("recorrência variável nos formulários", () => {
   });
 });
 
-describe("parseBudgetForm", () => {
-  const base = { categoryId: "4", month: "2026-10", limit: "600,00" };
-
-  it("converte o limite em centavos", () => {
-    expect(parseBudgetForm(fd(base))).toEqual({ ok: true, data: { categoryId: 4, month: "2026-10", amountCents: 60_000 } });
-    expect(parseBudgetForm(fd({ ...base, limit: "1.234,5" }))).toMatchObject({ data: { amountCents: 123_450 } });
+describe("parseExpenseClassForm", () => {
+  it("aceita as três chaves e os níveis; nível vazio desmarca", () => {
+    expect(parseExpenseClassForm(fd({ key: "compra:7", level: "dispensavel" }))).toEqual({ key: "compra:7", level: "dispensavel" });
+    expect(parseExpenseClassForm(fd({ key: "recorrencia:3", level: "essencial" }))).toEqual({ key: "recorrencia:3", level: "essencial" });
+    expect(parseExpenseClassForm(fd({ key: "desc:netflix", level: "" }))).toEqual({ key: "desc:netflix", level: null });
   });
 
-  it("vazio e 0 removem o limite", () => {
-    expect(parseBudgetForm(fd({ ...base, limit: "" }))).toMatchObject({ ok: true, data: { amountCents: 0 } });
-    expect(parseBudgetForm(fd({ ...base, limit: "0" }))).toMatchObject({ ok: true, data: { amountCents: 0 } });
-  });
-
-  it("rejeita valor inválido ou negativo e mês inválido", () => {
-    expect(parseBudgetForm(fd({ ...base, limit: "abc" }))).toMatchObject({ ok: false, error: /limite/i });
-    expect(parseBudgetForm(fd({ ...base, limit: "-5" }))).toMatchObject({ ok: false });
-    expect(() => parseBudgetForm(fd({ ...base, month: "2026-13" }))).toThrow(InvalidRequestError);
+  it("rejeita chave ou nível adulterados", () => {
+    expect(() => parseExpenseClassForm(fd({ key: "x:1", level: "reduzivel" }))).toThrow(InvalidRequestError);
+    expect(() => parseExpenseClassForm(fd({ key: "compra:abc", level: "reduzivel" }))).toThrow(InvalidRequestError);
+    expect(() => parseExpenseClassForm(fd({ key: "desc:", level: "reduzivel" }))).toThrow(InvalidRequestError);
+    expect(() => parseExpenseClassForm(fd({ key: "compra:7", level: "vermelho" }))).toThrow(InvalidRequestError);
   });
 });
 

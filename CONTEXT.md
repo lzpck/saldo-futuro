@@ -16,7 +16,7 @@ Tipo de Conta que representa dinheiro guardado e separado do dia a dia (como as 
 _Evitar_: cofrinho, reserva
 
 **Benefício**:
-Tipo de Conta que representa dinheiro recebido da empresa com uso restrito a certas Categorias (por exemplo, vale-alimentação). Fica fora do Saldo total e da Projeção de saldo, porque esse dinheiro não paga qualquer coisa; seu saldo aparece à parte, no total Benefício. A parte livre do que a empresa deposita fica numa Conta corrente comum, então o depósito vira duas Receitas. Cada Conta Benefício lista as Categorias aceitas (pode não ter nenhuma, e então se comporta sem restrição). Despesa de outra Categoria nela, ou que passe do saldo, e Transferência de saída dela geram aviso, mas são permitidas. O saldo acumula, sem expiração. Despesa paga com o Benefício abate só o saldo dele, não o Saldo total, mas conta normalmente nas Categorias e no Orçamento. Filtrar a lista pela Conta mostra o saldo dela dia a dia. A Conta que paga Fatura de algum cartão não pode ser Benefício: para pagar com ele, o usuário faz uma Transferência de saída.
+Tipo de Conta que representa dinheiro recebido da empresa com uso restrito a certas Categorias (por exemplo, vale-alimentação). Fica fora do Saldo total e da Projeção de saldo, porque esse dinheiro não paga qualquer coisa; seu saldo aparece à parte, no total Benefício. A parte livre do que a empresa deposita fica numa Conta corrente comum, então o depósito vira duas Receitas. Cada Conta Benefício lista as Categorias aceitas (pode não ter nenhuma, e então se comporta sem restrição). Despesa de outra Categoria nela, ou que passe do saldo, e Transferência de saída dela geram aviso, mas são permitidas. O saldo acumula, sem expiração. Despesa paga com o Benefício abate só o saldo dele, não o Saldo total, mas conta normalmente nas Categorias. Filtrar a lista pela Conta mostra o saldo dela dia a dia. A Conta que paga Fatura de algum cartão não pode ser Benefício: para pagar com ele, o usuário faz uma Transferência de saída.
 _Evitar_: vale, saldo restrito
 
 **Guardado**:
@@ -144,8 +144,14 @@ Saldo de fim de dia no fim da semana menos o da semana anterior, mostrada como s
 **Categoria**:
 Classificação de uma Despesa ou Receita, com cor e ícone. Pode ter um nível de Subcategoria.
 
-**Orçamento**:
-Limite mensal de gasto por Categoria de despesa. O limite definido num mês vale nos seguintes até ser alterado. Quando o gasto o alcança, a Categoria está em Atenção ou Estourou.
+**Revisão de gastos**:
+Tela em que o usuário classifica as Despesas das últimas 3 Faturas fechadas de cada cartão (a aberta fica de fora), no método das canetas: marca o que foi Dispensável, Reduzível ou Essencial. O que se repete aparece numa linha só (Grupo de gasto) e o total de Dispensável mostra o quanto foi gasto sem necessidade.
+
+**Grupo de gasto**:
+Despesas de cartão tratadas como uma só na Revisão de gastos: as parcelas de uma Compra parcelada, as ocorrências de uma Recorrência e, no resto, as de mesma descrição (sem caixa, acento nem "2/10"). Estornos, pagamentos de Fatura e valores estimados ficam de fora.
+
+**Nível**:
+Classificação dada a um Grupo de gasto: Dispensável, Reduzível ou Essencial (ou nenhum, enquanto não classificado). Fica salvo no Grupo e vale para as Faturas seguintes.
 
 ## Relações
 

@@ -29,16 +29,12 @@ describe("withReturnTo", () => {
 });
 
 describe("afterSaveUrl", () => {
-  it("volta à origem e acrescenta o aviso", () => {
-    expect(afterSaveUrl("/cartoes/7", "2026-10", "3_2026-10")).toBe("/cartoes/7?orcamento=3_2026-10");
-    expect(afterSaveUrl("/lancamentos?conta=3", "2026-10", "3_2026-10")).toBe("/lancamentos?conta=3&orcamento=3_2026-10");
-  });
-  it("troca o aviso que a origem já trazia, em vez de duplicar", () => {
-    expect(afterSaveUrl("/cartoes/7?orcamento=1_2026-09", "2026-10", "3_2026-10")).toBe("/cartoes/7?orcamento=3_2026-10");
-    expect(afterSaveUrl("/cartoes/7?orcamento=1_2026-09", "2026-10")).toBe("/cartoes/7");
+  it("volta à origem", () => {
+    expect(afterSaveUrl("/cartoes/7", "2026-10")).toBe("/cartoes/7");
+    expect(afterSaveUrl("/lancamentos?conta=3", "2026-10")).toBe("/lancamentos?conta=3");
   });
   it("sem origem válida cai em Lançamentos no mês do lançamento", () => {
     expect(afterSaveUrl(null, "2026-11")).toBe("/lancamentos?mes=2026-11");
-    expect(afterSaveUrl("//evil.com", "2026-11", "3_2026-11")).toBe("/lancamentos?mes=2026-11&orcamento=3_2026-11");
+    expect(afterSaveUrl("//evil.com", "2026-11")).toBe("/lancamentos?mes=2026-11");
   });
 });

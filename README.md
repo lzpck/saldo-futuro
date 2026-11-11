@@ -10,7 +10,7 @@ App pessoal de finanças, de um único usuário, com lançamentos totalmente man
 - **Cartões e faturas**: faturas calculadas a partir das compras, com pagamento abatendo da mais antiga para a mais nova.
 - **Agenda**: recorrências (inclusive de valor variável com previsão), parcelamentos e ocorrências.
 - **Caixinhas e Benefício**: dinheiro guardado ou de uso restrito, fora do Saldo total e da Projeção.
-- **Categorias, orçamento e relatórios**: gastos por categoria, limites mensais e busca.
+- **Categorias, revisão de gastos e relatórios**: gastos por categoria, classificação do que foi gasto no cartão (dispensável, reduzível, essencial) e busca.
 
 O vocabulário do domínio está em [`CONTEXT.md`](CONTEXT.md) e as decisões de arquitetura em [`docs/adr/`](docs/adr/).
 
@@ -56,7 +56,7 @@ Os dados ficam em `data/saldo.db` (ou no caminho definido em `DATABASE_PATH`). A
 ## Estrutura
 
 ```
-src/app/        rotas e telas (contas, lançamentos, cartões, agenda, categorias, orçamento, relatórios)
+src/app/        rotas e telas (contas, lançamentos, cartões, agenda, categorias, revisão de gastos, relatórios)
 e2e/            testes ponta a ponta (Playwright)
 scripts/        scripts utilitários
 docs/adr/       decisões de arquitetura

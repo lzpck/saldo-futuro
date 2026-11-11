@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { isISODate, isYearMonth } from "./dates";
+import { isISODate } from "./dates";
+import { GROUP_KEY_RE, LEVELS, type Level } from "./expense-review";
 import { parseBRL } from "./money";
 import { ACCOUNT_KINDS } from "./repos/accounts";
 import type { TransactionInput } from "./repos/transactions";
@@ -342,12 +343,12 @@ export function parsePurchaseEditForm(fd: FormData) {
   } as const;
 }
 
-/** Limite de orçamento de uma categoria a partir de um mês; vazio ou 0 remove o limite. */
-export function parseBudgetForm(fd: FormData) {
-  const month = text(fd.get("month"));
-  if (!isYearMonth(month)) throw new InvalidRequestError("month");
-  const raw = text(fd.get("limit"));
-  const cents = raw === "" ? 0 : parseBRL(raw);
-  if (cents === null || cents < 0) return { ok: false, error: "Informe um limite válido (ex.: 600,00). Use 0 para remover." } as const;
-  return { ok: true, data: { categoryId: idField(fd, "categoryId"), month, amountCents: cents } } as const;
+/** Grupo e nível da Revisão de gastos (campos ocultos/botões): lixo lança; nível vazio desmarca. */
+export function parseExpenseClassForm(fd: FormData): { key: string; level: Level | null } {
+  const key = text(fd.get("key"));
+  if (!GROUP_KEY_RE.test(key)) throw new InvalidRequestError("key");
+  const level = text(fd.get("level"));
+  if (level === "") return { key, level: null };
+  if (!(LEVELS as readonly string[]).includes(level)) throw new InvalidRequestError("level");
+  return { key, level: level as Level };
 }

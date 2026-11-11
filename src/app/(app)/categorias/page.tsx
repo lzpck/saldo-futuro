@@ -72,7 +72,7 @@ export default function CategoriesPage() {
     <PageShell>
       <PageHeader
         title="Categorias"
-        subtitle="Como seus lançamentos são classificados nos relatórios e no orçamento."
+        subtitle="Como seus lançamentos são classificados nos relatórios."
         actions={
           <Link href="/categorias/nova" className={PRIMARY_ACTION}>
             <span aria-hidden className={icon}>add</span>
