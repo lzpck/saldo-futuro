@@ -287,9 +287,12 @@ export function TransactionForm({
                 <fieldset className="col-span-2">
                   <legend className="label">Valores dos últimos meses (opcional)</legend>
                   <p className="mb-2 text-xs text-muted">
-                    Ajuda a prever desde o primeiro dia. Não cria lançamentos nem muda o saldo.
+                    Meses anteriores ao atual. Preencha só os que souber. Ajuda a prever desde o primeiro dia; não cria lançamentos nem muda o saldo.
                   </p>
-                  <SeedFields slots={6} max={shiftMonth(defaultDate.slice(0, 7), -1)} />
+                  <SeedFields
+                    slots={6}
+                    months={Array.from({ length: 6 }, (_, i) => shiftMonth(defaultDate.slice(0, 7), i - 6))}
+                  />
                 </fieldset>
               )}
             </div>

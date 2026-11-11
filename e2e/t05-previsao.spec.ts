@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { addMonthsClamped } from "../src/lib/recurrence";
 import { shiftMonth } from "../src/lib/prediction";
+import { monthLabel } from "../src/lib/dates";
 import { parseBRL } from "../src/lib/money";
 
 // Continua do estado das fatias anteriores. Os valores são relativos ao dia da execução: o histórico
@@ -50,8 +51,8 @@ test("criar luz variável com 3 meses de histórico: a ocorrência mostra o valo
 
   const seed = [100, 200, 300];
   for (const [i, valor] of seed.entries()) {
-    await page.getByLabel(`Mês do histórico ${i + 1}`).fill(shiftMonth(THIS_MONTH, i - 3));
-    await page.getByLabel(`Valor do histórico ${i + 1}`).fill(`${valor},00`);
+    // os 6 meses anteriores ao atual já vêm na tela; só o valor é digitado
+    await page.getByLabel(`Valor de ${monthLabel(shiftMonth(THIS_MONTH, i - 3))}`).fill(`${valor},00`);
   }
   await page.getByRole("button", { name: "Criar recorrência" }).click();
   await page.waitForURL(/lancamentos\?mes/);
