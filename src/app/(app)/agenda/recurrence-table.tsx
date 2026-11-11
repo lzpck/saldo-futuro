@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatBRL } from "@/lib/money";
 
 export type RecurrenceRowData = {
@@ -30,11 +30,17 @@ export function RecurrenceTable({ rows }: { rows: RecurrenceRowData[] }) {
   const [tab, setTab] = useState<Tab>("todas");
   const [query, setQuery] = useState("");
   const [account, setAccount] = useState("");
+  // O campo responde na hora; o filtro (e o re-render da lista) espera a pessoa parar de digitar.
+  const [applied, setApplied] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setApplied(query), 250);
+    return () => clearTimeout(t);
+  }, [query]);
 
   const accounts = useMemo(() => [...new Set(rows.map((r) => r.accountName))].sort((a, b) => a.localeCompare(b)), [rows]);
   const expenses = rows.filter((r) => r.kind === "despesa").length;
   const incomes = rows.length - expenses;
-  const q = query.trim().toLowerCase();
+  const q = applied.trim().toLowerCase();
   const shown = rows.filter(
     (r) =>
       (tab === "todas" || r.kind === tab) &&

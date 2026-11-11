@@ -63,7 +63,14 @@ export function cardInvoices(db: Db, card: AccountWithBalance, base: Transaction
  * Pagamentos de fatura previstos até `to`: um por fatura com valor em aberto, no vencimento.
  * São calculados, como as ocorrências de recorrência, e se ajustam sozinhos a novas compras.
  */
-export function listInvoicePayments(db: Db, base: Transaction[], to: string, today: string): Transaction[] {
+export function listInvoicePayments(
+  db: Db,
+  base: Transaction[],
+  to: string,
+  today: string,
+  /** Faturas já calculadas (por cartão) a partir de `base` ou de uma agenda mais longa: poupa recalcular. */
+  invoicesByCard?: Map<number, CardInvoice[]>,
+): Transaction[] {
   const result: Transaction[] = [];
   let nextId = 1_000_000;
 
@@ -71,7 +78,7 @@ export function listInvoicePayments(db: Db, base: Transaction[], to: string, tod
     const c = asCard(card);
     const payer = getAccount(db, c.payAccountId);
     if (!payer) continue;
-    for (const inv of cardInvoices(db, card, base, today)) {
+    for (const inv of invoicesByCard?.get(card.id) ?? cardInvoices(db, card, base, today)) {
       // Faturas que vencem depois de `to` ainda podem estar incompletas: ficam de fora.
       if (inv.remainingCents <= 0 || inv.dueDate > to) continue;
       result.push({

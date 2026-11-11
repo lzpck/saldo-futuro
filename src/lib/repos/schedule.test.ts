@@ -22,7 +22,8 @@ import {
   skipOccurrence,
   updateRecurrenceFrom,
 } from "./recurrences";
-import { listSchedule } from "./schedule";
+import { cardInvoices } from "./cards";
+import { listSchedule, loadSchedule } from "./schedule";
 import { createTransaction, listTransactions } from "./transactions";
 
 let db: Db;
@@ -404,5 +405,15 @@ describe("atraso de compra no cartão", () => {
   it("lançamentos fora de cartão continuam atrasando pela própria data", () => {
     const id = createTransaction(db, { kind: "despesa", status: "previsto", date: "2026-10-01", amountCents: 500, description: "Luz", accountId: acc });
     expect(isOverdue(listSchedule(db, "2026-12-31", TODAY).find((t) => t.id === id)!, TODAY)).toBe(true);
+  });
+
+  it("loadSchedule com faturas mais longas devolve a mesma agenda e as mesmas faturas de duas leituras", () => {
+    buy("2026-09-10");
+    buy("2026-12-20"); // depois de `to`: entra nas faturas, não na agenda
+    rent({ accountId: card, categoryId: null, startDate: "2026-10-20" });
+    const horizon = "2027-11-30";
+    const { transactions, invoicesByCard } = loadSchedule(db, "2026-12-31", TODAY, horizon);
+    expect(transactions).toEqual(listSchedule(db, "2026-12-31", TODAY));
+    expect(invoicesByCard.get(card)).toEqual(cardInvoices(db, listAccounts(db).find((a) => a.id === card)!, listWithOccurrences(db, horizon), TODAY));
   });
 });

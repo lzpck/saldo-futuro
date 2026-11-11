@@ -37,10 +37,8 @@ import {
   type AccountKind,
   type AccountWithBalance,
 } from "@/lib/repos/accounts";
-import { cardInvoices } from "@/lib/repos/cards";
 import { listCategories } from "@/lib/repos/categories";
-import { listWithOccurrences } from "@/lib/repos/recurrences";
-import { listSchedule } from "@/lib/repos/schedule";
+import { loadSchedule } from "@/lib/repos/schedule";
 
 const icon = "material-symbols-outlined";
 const SECONDARY = "text-body-sm font-body-sm text-on-surface-variant";
@@ -187,10 +185,12 @@ export default function AccountsPage() {
   const categoryName = new Map(listCategories(db).map((c) => [c.id, c.name]));
 
   // Mesma agenda da Início: traz salário, despesas previstas e o pagamento previsto de cada fatura.
-  const days = cards.length
+  // As faturas olham 400 dias à frente; a mesma leitura da agenda serve às duas coisas.
+  const schedule = cards.length ? loadSchedule(db, addDays(today, SHORTFALL_HORIZON_DAYS), today, addDays(today, 400)) : null;
+  const days = schedule
     ? dailyBalances({
         accounts: spendable.map((a) => ({ id: a.id, initialBalanceCents: a.initialBalanceCents })),
-        transactions: listSchedule(db, addDays(today, SHORTFALL_HORIZON_DAYS), today),
+        transactions: schedule.transactions,
         today,
         from: today,
         to: addDays(today, SHORTFALL_HORIZON_DAYS),
@@ -198,9 +198,8 @@ export default function AccountsPage() {
     : [];
 
   // Faturas de cada cartão: base de tudo que a tela diz sobre cartões e sobre quem os paga.
-  const base = cards.length ? listWithOccurrences(db, addDays(today, 400)) : [];
   const cardRows = cards.map((c) => {
-    const unpaid = cardInvoices(db, c, base, today).filter((i) => i.remainingCents > 0);
+    const unpaid = schedule!.invoicesByCard.get(c.id)!.filter((i) => i.remainingCents > 0);
     return { card: c, unpaid, next: unpaid[0] };
   });
   const invoicesDue: InvoiceDue[] = cardRows.flatMap(({ card, unpaid }) =>

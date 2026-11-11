@@ -8,9 +8,7 @@ import { formatBRL } from "@/lib/money";
 import { monthlyOutlook } from "@/lib/month-outlook";
 import { addDays, dailyBalances, lowestBalance, openItems } from "@/lib/projection";
 import { benefitBalanceCents, isBenefit, isCard, isSavings, isSpendable, listAccounts, savedBalanceCents, totalBalanceCents } from "@/lib/repos/accounts";
-import { cardInvoices } from "@/lib/repos/cards";
-import { listWithOccurrences } from "@/lib/repos/recurrences";
-import { listSchedule } from "@/lib/repos/schedule";
+import { loadSchedule } from "@/lib/repos/schedule";
 import { listTransactions, type Transaction } from "@/lib/repos/transactions";
 
 /** Janela da projeção: sempre estes dias a partir de hoje, não até o fim do mês. */
@@ -45,7 +43,8 @@ export default function DashboardPage() {
   // A projeção olha sempre 30 dias à frente, a partir de hoje.
   const projectionEnd = addDays(today, PROJECTION_DAYS);
   const outlookMonths = 6;
-  const scheduled = listSchedule(db, monthBounds(shiftMonth(month, outlookMonths - 1)).to, today);
+  // As faturas olham 400 dias à frente; a mesma leitura da agenda serve às duas coisas.
+  const { transactions: scheduled, invoicesByCard } = loadSchedule(db, monthBounds(shiftMonth(month, outlookMonths - 1)).to, today, addDays(today, 400));
   const open = openItems(scheduled, today, horizon);
   const days = dailyBalances({
     accounts: accounts.map((a) => ({ id: a.id, initialBalanceCents: a.initialBalanceCents })),
@@ -55,8 +54,6 @@ export default function DashboardPage() {
     to: projectionEnd,
   });
   // Primeira fatura com valor em aberto de cada cartão.
-  const cardBase = cards.length ? listWithOccurrences(db, addDays(today, 400)) : [];
-  const invoicesByCard = new Map(cards.map((c) => [c.id, cardInvoices(db, c, cardBase, today)]));
   const nextInvoice = new Map(cards.map((c) => [c.id, invoicesByCard.get(c.id)!.find((i) => i.remainingCents > 0)]));
   const endOfMonth = days.find((d) => d.date === monthEnd) ?? days.at(-1);
   const low = lowestBalance(days);
